@@ -6,14 +6,13 @@ import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Card, Typography, Row, Col, Tag, DatePicker, Modal, Form, Input, message, Statistic } from 'antd';
 import { PlusOutlined, DownloadOutlined, CalendarOutlined } from '@ant-design/icons';
 import { weekApi, taskApi, exportApi } from '../api';
+import TaskDetailDrawer from '../components/TaskDetailDrawer';
 import type { Week, Task, WeekSummary } from '../types';
-import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
 const Weeks: React.FC = () => {
-  const navigate = useNavigate();
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<Week | null>(null);
@@ -21,6 +20,8 @@ const Weeks: React.FC = () => {
   const [summary, setSummary] = useState<WeekSummary | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     loadWeeks();
@@ -102,7 +103,7 @@ const Weeks: React.FC = () => {
       dataIndex: 'name',
       key: 'name',
       render: (text: string, record: Task) => (
-        <a onClick={() => navigate(`/tasks/${record.id}`)}>{text}</a>
+        <a onClick={() => { setDrawerTaskId(record.id); setDrawerOpen(true); }}>{text}</a>
       ),
     },
     {
@@ -254,6 +255,12 @@ const Weeks: React.FC = () => {
               </Form.Item>
             </Form>
           </Modal>
+
+          <TaskDetailDrawer
+            taskId={drawerTaskId}
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+          />
         </>
       )}
     </div>

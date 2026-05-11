@@ -1,9 +1,5 @@
-/**
- * 首页看板页面
- */
-
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Space, Typography, Progress, List, Button } from 'antd';
+import { Row, Col, Card, Statistic, Table, Tag, Space, Typography, Progress, List, Button, Select } from 'antd';
 import {
   ProjectOutlined,
   CheckCircleOutlined,
@@ -13,38 +9,85 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { statisticsApi, weekApi, evaluationApi } from '../api';
-import type { DashboardStats, MemberRanking, PendingEvaluation } from '../types';
+import { statisticsApi, weekApi, evaluationApi, taskApi } from '../api';
+import TaskDetailDrawer from '../components/TaskDetailDrawer';
+import type { DashboardStats, MemberRanking, PendingEvaluation, Task } from '../types';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [ranking, setRanking] = useState<MemberRanking[]>([]);
   const [pendingEvaluations, setPendingEvaluations] = useState<PendingEvaluation[]>([]);
-  const [currentWeek, setCurrentWeek] = useState<{ id: number; name: string } | null>(null);
+  const [weeks, setWeeks] = useState<{ id: number; name: string }[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>();
+  const [weekTasks, setWeekTasks] = useState<Task[]>([]);
+  const [drawerTaskId, setDrawerTaskId] = useState<number | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
-    loadData();
+    loadInitialData();
   }, []);
 
-  const loadData = async () => {
+  const loadInitialData = async () => {
+    setLoading(true);
     try {
-      const [week, dashboard, rankingData, pending] = await Promise.all([
-        weekApi.getCurrent(),
+      const [weekResult, dashboard, rankingData, pending] = await Promise.all([
+        weekApi.getList({ page_size: 50 }),
         statisticsApi.getDashboard(),
         statisticsApi.getRanking(),
         evaluationApi.getPending(),
       ]);
 
-      setCurrentWeek({ id: week.id, name: week.name });
+      const weeksData = weekResult.items;
+      setWeeks(weeksData.map((w) => ({ id: w.id, name: w.name })));
+
+      const current = weeksData.find((w) => w.status === 'current');
+      const currentWeekId = current?.id;
+      setSelectedWeekId(currentWeekId);
+
       setStats(dashboard);
       setRanking(rankingData.items || []);
       setPendingEvaluations(pending.items || []);
+
+      if (currentWeekId) {
+        const taskResult = await taskApi.getList({ week_id: currentWeekId, page_size: 100 });
+        setWeekTasks(taskResult.items);
+      }
     } catch (error) {
       console.error('加载看板数据失败:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleWeekChange = async (weekId: number) => {
+    setSelectedWeekId(weekId);
+    setLoading(true);
+    try {
+      const [dashboard, rankingData, pending, taskResult] = await Promise.all([
+        statisticsApi.getDashboard(weekId),
+        statisticsApi.getRanking(weekId),
+        evaluationApi.getPending(),
+        taskApi.getList({ week_id: weekId, page_size: 100 }),
+      ]);
+      setStats(dashboard);
+      setRanking(rankingData.items || []);
+      setPendingEvaluations(pending.items || []);
+      setWeekTasks(taskResult.items);
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showTaskDetail = (taskId: number) => {
+    setDrawerTaskId(taskId);
+    setDrawerOpen(true);
   };
 
   const statCards = [
@@ -79,13 +122,22 @@ const Dashboard: React.FC = () => {
     ? Math.round((stats.completed_tasks / stats.total_tasks) * 100)
     : 0;
 
+  const now = dayjs().startOf('day');
+  const urgentTasks = weekTasks.filter((t) => {
+    if (t.status === 'completed') return false;
+    const deadline = dayjs(t.deadline.split('T')[0]);
+    const daysUntil = deadline.diff(now, 'day');
+    return daysUntil >= 0 && daysUntil <= 2 && !t.is_overdue;
+  });
+  const overdueTaskList = weekTasks.filter((t) => t.is_overdue && t.status !== 'completed');
+
   const pendingColumns = [
     {
       title: '任务名称',
       dataIndex: 'task_name',
       key: 'task_name',
       render: (text: string, record: PendingEvaluation) => (
-        <a onClick={() => navigate(`/tasks/${record.task_id}`)}>{text}</a>
+        <a onClick={() => showTaskDetail(record.task_id)}>{text}</a>
       ),
     },
     {
@@ -110,27 +162,65 @@ const Dashboard: React.FC = () => {
     },
   ];
 
+  const taskColumns = [
+    {
+      title: '任务名称',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string, record: Task) => (
+        <a onClick={() => showTaskDetail(record.id)}>{text}</a>
+      ),
+    },
+    {
+      title: '责任人',
+      dataIndex: 'assignee_name',
+      key: 'assignee_name',
+    },
+    {
+      title: '截止时间',
+      dataIndex: 'deadline',
+      key: 'deadline',
+      render: (date: string) => date?.split('T')[0],
+    },
+  ];
+
   return (
     <div>
-      <Title level={4}>首页看板</Title>
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Col>
+          <Title level={4} style={{ margin: 0 }}>首页看板</Title>
+        </Col>
+        <Col>
+          <Space>
+            <span>选择周次：</span>
+            <Select
+              style={{ width: 200 }}
+              value={selectedWeekId}
+              onChange={handleWeekChange}
+              placeholder="选择周次"
+              loading={loading}
+            >
+              {weeks.map((week) => (
+                <Select.Option key={week.id} value={week.id}>
+                  {week.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Space>
+        </Col>
+      </Row>
 
-      {/* 统计卡片 */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         {statCards.map((card, index) => (
           <Col span={6} key={index}>
             <Card bordered={false} style={{ background: card.color }}>
-              <Statistic
-                title={card.title}
-                value={card.value}
-                prefix={card.icon}
-              />
+              <Statistic title={card.title} value={card.value} prefix={card.icon} />
             </Card>
           </Col>
         ))}
       </Row>
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
-        {/* 任务完成进度 */}
         <Col span={12}>
           <Card title="本周任务完成进度" bordered={false}>
             <Space direction="vertical" style={{ width: '100%' }} size="large">
@@ -163,7 +253,6 @@ const Dashboard: React.FC = () => {
           </Card>
         </Col>
 
-        {/* 积分排行 */}
         <Col span={12}>
           <Card title="本周积分排行" bordered={false}>
             <List
@@ -196,10 +285,10 @@ const Dashboard: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 待评价任务 */}
       <Card
         title="待评价任务"
         bordered={false}
+        style={{ marginBottom: 24 }}
         extra={
           <Button type="link" onClick={() => navigate('/evaluations')}>
             查看全部
@@ -219,6 +308,43 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {(urgentTasks.length > 0 || overdueTaskList.length > 0) && (
+        <Row gutter={16}>
+          {urgentTasks.length > 0 && (
+            <Col span={12}>
+              <Card title="临近截止任务" bordered={false}>
+                <Table
+                  columns={taskColumns}
+                  dataSource={urgentTasks}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                />
+              </Card>
+            </Col>
+          )}
+          {overdueTaskList.length > 0 && (
+            <Col span={12}>
+              <Card title="已延期任务" bordered={false}>
+                <Table
+                  columns={taskColumns}
+                  dataSource={overdueTaskList}
+                  rowKey="id"
+                  pagination={false}
+                  size="small"
+                />
+              </Card>
+            </Col>
+          )}
+        </Row>
+      )}
+
+      <TaskDetailDrawer
+        taskId={drawerTaskId}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      />
     </div>
   );
 };

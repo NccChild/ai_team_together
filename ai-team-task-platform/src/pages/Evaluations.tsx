@@ -46,12 +46,17 @@ const Evaluations: React.FC = () => {
 
   const handleEvaluate = (record: PendingEvaluation) => {
     setSelectedTask(record);
+    const savedEvaluatorId = parseInt(localStorage.getItem('lastEvaluatorId') || '1', 10);
     form.setFieldsValue({
       task_id: record.task_id,
       member_id: record.assignee_id,
-      evaluator_id: 1, // TODO: 实际应为当前登录用户
+      evaluator_id: savedEvaluatorId,
     });
     setModalVisible(true);
+  };
+
+  const handleEvaluatorChange = (value: number) => {
+    localStorage.setItem('lastEvaluatorId', value.toString());
   };
 
   const handleSubmit = async () => {
@@ -155,7 +160,7 @@ const Evaluations: React.FC = () => {
             label="评价人"
             rules={[{ required: true, message: '请选择评价人' }]}
           >
-            <Select placeholder="请选择评价人">
+            <Select placeholder="请选择评价人" onChange={handleEvaluatorChange}>
               {members.map((m) => (
                 <Select.Option key={m.id} value={m.id}>
                   {m.name}

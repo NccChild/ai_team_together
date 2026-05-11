@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import MainLayout from './components/Layout';
 import {
   Dashboard,
@@ -24,19 +25,21 @@ const App: React.FC = () => {
       }}
     >
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="members" element={<Members />} />
-            <Route path="tasks" element={<Tasks />} />
-            <Route path="weeks" element={<Weeks />} />
-            <Route path="evaluations" element={<Evaluations />} />
-            <Route path="statistics" element={<Statistics />} />
-            <Route path="weekly-reports" element={<WeeklyReports />} />
-            <Route path="achievements" element={<Achievements />} />
-          </Route>
-        </Routes>
+        <ErrorBoundary>
+          <Routes>
+            <Route path="/" element={<MainLayout />}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="members" element={<Members />} />
+              <Route path="tasks" element={<Tasks />} />
+              <Route path="weeks" element={<Weeks />} />
+              <Route path="evaluations" element={<Evaluations />} />
+              <Route path="statistics" element={<Statistics />} />
+              <Route path="weekly-reports" element={<WeeklyReports />} />
+              <Route path="achievements" element={<Achievements />} />
+            </Route>
+          </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </ConfigProvider>
   );
