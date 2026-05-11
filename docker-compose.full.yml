@@ -1,0 +1,61 @@
+# 完整部署配置（包含数据库和后端）
+# 使用此文件可一键启动数据库和后端服务
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ai_team_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: ai_team_user
+      MYSQL_PASSWORD: ai_team_password
+      MYSQL_DATABASE: ai_team_task_platform
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai_team_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai_team_backend
+    restart: unless-stopped
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ai_team_user
+      MYSQL_PASSWORD: ai_team_password
+      MYSQL_DATABASE: ai_team_task_platform
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai_team_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  ai_team_network:
+    driver: bridge

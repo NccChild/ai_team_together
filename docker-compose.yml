@@ -1,0 +1,35 @@
+# MySQL 数据库 Docker 配置
+# 用于启动 MySQL 8.0 数据库
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ai_team_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: ai_team_user
+      MYSQL_PASSWORD: ai_team_password
+      MYSQL_DATABASE: ai_team_task_platform
+      TZ: Asia/Shanghai
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    networks:
+      - ai_team_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  ai_team_network:
+    driver: bridge
