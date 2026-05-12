@@ -3,6 +3,15 @@ FastAPI 应用入口
 人工智能专班任务与成果跟踪小工具后端服务
 """
 
+import sys
+import os
+
+# 将项目根目录加入 Python 路径，确保 `backend.xxx` 导入正确
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env"))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.config import APP_NAME, APP_VERSION
@@ -73,6 +82,5 @@ if __name__ == "__main__":
         "backend.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
-        reload_dirs=["D:/WorkSpace/ai_team_task_platform"]
+        reload=True
     )

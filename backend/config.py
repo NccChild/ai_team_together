@@ -16,6 +16,7 @@ APP_PORT = int(os.getenv("APP_PORT", "8000"))
 
 # ===========================================
 # MySQL 数据库配置
+
 # ===========================================
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3310"))

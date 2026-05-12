@@ -28,16 +28,15 @@
 ai_team_task_platform/
 ├── backend/                    # 后端工程
 │   ├── main.py               # 应用入口
-│   ├── config.py             # 配置文件
-│   ├── database.py           # 数据库连接
-│   ├── models.py              # ORM 模型
-│   ├── schemas.py             # Pydantic 模型
-│   ├── routers/               # 路由模块
-│   ├── services/              # 业务逻辑
-│   ├── utils/                 # 工具函数
-│   ├── init_db.py             # 数据库初始化
-│   ├── requirements.txt       # Python 依赖
-│   └── Dockerfile             # Docker 配置
+│   ├── config.py             # 配置文件（数据库、大模型等）
+│   ├── database.py           # 数据库连接与会话管理
+│   ├── models.py             # ORM 模型
+│   ├── schemas.py            # Pydantic 模型
+│   ├── routers/              # 路由模块
+│   ├── services/             # 业务逻辑
+│   ├── utils/                # 工具函数
+│   ├── init_db.py            # 数据库初始化（含示例数据）
+│   └── requirements.txt      # Python 依赖
 ├── ai-team-task-platform/      # 前端工程（React）
 ├── deploy/                     # 部署脚本和配置
 ├── docs/                       # 文档目录
@@ -47,33 +46,47 @@ ai_team_task_platform/
 
 ## 快速开始
 
+> **注意**：项目 `.gitignore` 已忽略 `.venv/`、`.env` 等文件，不会上传到仓库。请自行创建虚拟环境和环境变量配置文件。
+
 ### 1. 启动 MySQL 数据库
 
-```bash
-# 使用 Docker 启动
-docker-compose up -d
+项目使用 Docker 启动 MySQL 8.0，配置定义在 `docker-compose.yml`：
 
-# 或本地 MySQL
-# 创建数据库: ai_team_task_platform
+| 配置项 | 值 | 对应文件 |
+|--------|-----|----------|
+| 容器名称 | `ai_team_mysql_v1` | `docker-compose.yml` |
+| 宿主机端口 | `3310` | `docker-compose.yml` → `config.py` (`MYSQL_PORT`) |
+| 容器内端口 | `3306` | `docker-compose.yml` |
+| 数据库名 | `ai_team_task_platform` | `docker-compose.yml` → `config.py` (`MYSQL_DATABASE`) |
+| 应用用户 | `ai_team_user` | `docker-compose.yml` → `config.py` (`MYSQL_USER`) |
+| 应用密码 | `ai_team_password` | `docker-compose.yml` → `config.py` (`MYSQL_PASSWORD`) |
+| Root 密码 | `root_password` | `docker-compose.yml` |
+
+```bash
+# 启动 MySQL（在项目根目录执行）
+docker compose up -d
+
+# 验证数据库连接（可选）
+docker exec -it ai_team_mysql_v1 mysql -u ai_team_user -pai_team_password ai_team_task_platform
 ```
+
+> **注意**：`docker-compose.yml` 和 `backend/config.py` 中数据库账号密码已对齐，本地开发无需额外配置。如果使用本地 MySQL，需要自行建库并在 `backend/.env` 中覆盖连接信息。
 
 ### 2. 启动后端服务
 
 ```bash
-cd backend
+# 在项目根目录执行
 
 # 创建虚拟环境
 python -m venv .venv
-source .venv/bin/activate  # Linux/Mac
-# .venv\Scripts\activate    # Windows
+source .venv/bin/activate   # Linux/Mac
+# .venv\Scripts\activate     # Windows
 
 # 安装依赖
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
-# 配置环境变量或修改 config.py
-
-# 启动服务
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# 启动服务（在项目根目录执行）
+python backend/main.py
 ```
 
 ### 3. 启动前端服务
