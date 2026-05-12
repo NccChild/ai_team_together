@@ -234,24 +234,24 @@ export const dictionaryApi = {
 // 导出接口
 // ===========================================
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+
 export const exportApi = {
   exportWeekPlan: (weekId: number) => {
-    window.open(`${apiClient['client'].defaults.baseURL}/export/week-plan?week_id=${weekId}`);
+    window.open(`${API_BASE_URL}/export/week-plan?week_id=${weekId}`);
   },
 
   exportWeekEvaluation: (weekId: number) => {
-    window.open(
-      `${apiClient['client'].defaults.baseURL}/export/week-evaluation?week_id=${weekId}`
-    );
+    window.open(`${API_BASE_URL}/export/week-evaluation?week_id=${weekId}`);
   },
 
   exportMemberStatistics: (weekId?: number) => {
     const params = weekId ? `?week_id=${weekId}` : '';
-    window.open(`${apiClient['client'].defaults.baseURL}/export/member-statistics${params}`);
+    window.open(`${API_BASE_URL}/export/member-statistics${params}`);
   },
 
   exportAchievements: (weekId?: number) => {
     const params = weekId ? `?week_id=${weekId}` : '';
-    window.open(`${apiClient['client'].defaults.baseURL}/export/achievements${params}`);
+    window.open(`${API_BASE_URL}/export/achievements${params}`);
   },
 };

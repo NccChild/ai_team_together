@@ -23,17 +23,20 @@ module.exports = {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				primary: {
-					DEFAULT: '#2B5D3A',
+					DEFAULT: '#006D4E',
+					light: '#26A67A',
+					dark: '#004D36',
 					foreground: 'hsl(var(--primary-foreground))',
 				},
 				secondary: {
-					DEFAULT: '#4A90E2',
+					DEFAULT: '#26A67A',
 					foreground: 'hsl(var(--secondary-foreground))',
 				},
 				accent: {
-					DEFAULT: '#F5A623',
+					DEFAULT: '#D4AF37',
 					foreground: 'hsl(var(--accent-foreground))',
 				},
+				gold: '#D4AF37',
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))',
