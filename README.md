@@ -107,6 +107,54 @@ pnpm dev
 - 后端 API：http://localhost:8000
 - API 文档：http://localhost:8000/docs
 
+## 排障指南
+
+当后端接口报错时，可通过以下流程快速定位：
+
+### 1. 前端获取 trace_id
+
+打开浏览器 F12 → Network，找到报错的请求：
+
+- **HTTP 200 但 code 不是 200**：看响应体 JSON，取 `trace_id` 和 `error_type`
+- **HTTP 500**：同样看响应体 JSON 中的 `trace_id`
+- 响应头 `X-Trace-Id` 也有同样的值
+
+eg: `trace_id: "a1b2c3d4e5f6"`, `error_type: "OperationalError"`
+
+### 2. 在后端日志中搜索
+
+```bash
+# 在 backend/logs/ 目录下
+grep "a1b2c3d4e5f6" app.log
+```
+
+日志会显示完整的调用链路：
+
+```
+2026-05-12 16:30:00 | a1b2c3d4e5f6 | ERROR | backend.utils.exceptions |
+未处理异常: (pymysql.err.OperationalError) (2003, "Can't connect to MySQL ...")
+Traceback (most recent call last):
+  File "backend/services/task_service.py", line 42, in create_task
+    db.add(task)
+  ...
+```
+
+从日志中可以得到：
+- **文件位置**：`task_service.py:42`
+- **具体操作**：`db.add(task)`
+- **错误原因**：`OperationalError: Can't connect to MySQL`
+- **完整堆栈**：从 router → service → SQLAlchemy 完整调用链
+
+### 3. 日志配置
+
+| 配置 | 说明 |
+|------|------|
+| 日志位置 | `backend/logs/app.log` |
+| 轮转策略 | 每天午夜自动分割 |
+| 保留天数 | 30 天 |
+| 格式 | `时间 | trace_id | 级别 | 模块 | 消息` |
+| 同时输出 | 文件 + 控制台 |
+
 ## 功能模块
 
 1. **首页看板** - 展示本周任务、完成情况、待评价、延期、积分排行

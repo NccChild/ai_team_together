@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import traceback
 import logging
+from backend.utils.middleware import get_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +57,20 @@ def register_exception_handlers(app):
     @app.exception_handler(BusinessException)
     async def business_exception_handler(request: Request, exc: BusinessException):
         """处理业务异常"""
+        trace_id = get_trace_id()
+        logger.warning(
+            "业务异常 code=%s type=%s message=%s",
+            exc.code, exc.__class__.__name__, exc.message,
+            extra={"trace_id": trace_id}
+        )
         return JSONResponse(
-            status_code=200,  # 业务异常返回 200，通过 code 区分
+            status_code=200,
             content={
                 "code": exc.code,
                 "message": exc.message,
                 "error": exc.details,
+                "trace_id": trace_id,
+                "error_type": exc.__class__.__name__,
                 "timestamp": datetime.now().isoformat()
             }
         )
@@ -69,12 +78,15 @@ def register_exception_handlers(app):
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """处理 HTTP 异常"""
+        trace_id = get_trace_id()
         return JSONResponse(
             status_code=exc.status_code,
             content={
                 "code": str(exc.status_code),
                 "message": exc.detail,
                 "error": {},
+                "trace_id": trace_id,
+                "error_type": "HTTPException",
                 "timestamp": datetime.now().isoformat()
             }
         )
@@ -82,13 +94,21 @@ def register_exception_handlers(app):
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
         """处理未捕获的异常"""
-        logger.error(f"Unhandled exception: {exc}", exc_info=True)
+        trace_id = get_trace_id()
+        logger.error(
+            "未处理异常: %s\n%s",
+            exc,
+            "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+            extra={"trace_id": trace_id}
+        )
         return JSONResponse(
             status_code=500,
             content={
                 "code": "500",
                 "message": "服务器内部错误",
-                "error": {"detail": str(exc) if logger.level == logging.DEBUG else "请联系管理员"},
+                "error": {"detail": "请联系管理员"},
+                "trace_id": trace_id,
+                "error_type": type(exc).__name__,
                 "timestamp": datetime.now().isoformat()
             }
         )

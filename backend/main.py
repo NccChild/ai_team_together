@@ -12,8 +12,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", ".env"))
 
+# 初始化日志系统（必须在其他模块之前）
+import logging
+from backend.utils.logging_config import setup_logging, TraceFilter
+setup_logging()
+# 为所有 handler 添加 trace_id 过滤器
+for handler in logging.getLogger().handlers:
+    handler.addFilter(TraceFilter())
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from backend.utils.middleware import TraceMiddleware, RequestLogMiddleware
 from backend.config import APP_NAME, APP_VERSION
 from backend.database import engine
 from backend.models import Base
@@ -41,11 +50,16 @@ app = FastAPI(
 # 配置 CORS 中间件，允许前端跨域访问
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 生产环境应限制为具体域名
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Trace-Id"],
 )
+
+# 注册请求中间件（先 trace_id，再 access log）
+app.add_middleware(TraceMiddleware)
+app.add_middleware(RequestLogMiddleware)
 
 # 注册异常处理器
 register_exception_handlers(app)
