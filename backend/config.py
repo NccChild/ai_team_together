@@ -18,9 +18,9 @@ APP_PORT = int(os.getenv("APP_PORT", "8000"))
 # MySQL 数据库配置
 # ===========================================
 MYSQL_HOST = os.getenv("MYSQL_HOST", "127.0.0.1")
-MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
+MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3310"))
 MYSQL_USER = os.getenv("MYSQL_USER", "ai_team_user")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "your_password")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "ai_team_password")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "ai_team_task_platform")
 
 DATABASE_URL = (
