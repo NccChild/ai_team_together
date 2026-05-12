@@ -5,7 +5,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import type { ApiResponse } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||'http://172.20.10.2:8000/api/v1';          //'http://localhost:8000/api/v1';
 
 class ApiClient {
   private client: AxiosInstance;
@@ -41,8 +41,10 @@ class ApiClient {
         return response;
       },
       (error) => {
-        console.error('Request Error:', error);
-        return Promise.reject(error);
+        const message =
+          error?.response?.data?.message || error?.message || '请求失败';
+        console.error('Request Error:', message, error);
+        return Promise.reject(new Error(message));
       }
     );
   }
