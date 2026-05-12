@@ -6,7 +6,7 @@ version: '3.8'
 services:
   mysql:
     image: mysql:8.0
-    container_name: ai_team_mysql
+    container_name: ai_team_mysql_v1
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root_password
@@ -15,7 +15,7 @@ services:
       MYSQL_DATABASE: ai_team_task_platform
       TZ: Asia/Shanghai
     ports:
-      - "3306:3306"
+      - "3310:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./deploy/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
