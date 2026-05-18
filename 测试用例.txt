@@ -1,0 +1,21 @@
+成员创建：
+{
+  "name": "zxx",
+  "unit": "信通公司",
+  "contact": "13165553612",
+  "email": "1194302403@qq.com",
+  "skill_tags": [],
+  "is_backbone": false,
+  "username": "zxx",
+  "password": "zxx"
+}
+{
+  "name": "gch",
+  "unit": "信通公司",
+  "contact": "13165553612",
+  "email": "1194302403@qq.com",
+  "skill_tags": [],
+  "is_backbone": false,
+  "username": "gch",
+  "password": "gch"
+}
