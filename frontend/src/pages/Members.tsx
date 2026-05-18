@@ -414,7 +414,23 @@ const Members: React.FC = () => {
             <>
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
+                  <Form.Item
+                    name="username"
+                    label="用户名"
+                    rules={[
+                      { required: true, message: '请输入用户名' },
+                      {
+                        validator: async (_, value) => {
+                          if (!value) return;
+                          const res = await memberApi.checkUsername(value);
+                          if (res.exists) {
+                            return Promise.reject(new Error('用户名已存在，请更换'));
+                          }
+                        },
+                        validateTrigger: 'onBlur',
+                      },
+                    ]}
+                  >
                     <Input placeholder="请输入登录用户名" />
                   </Form.Item>
                 </Col>
