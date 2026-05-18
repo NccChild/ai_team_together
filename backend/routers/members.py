@@ -185,6 +185,12 @@ def update_member(
         "updated_at": member.updated_at
     }, message="人员更新成功")
 
+@router.get("/members/check-username/{username}", response_model=ResponseModel, summary="检查用户名是否已存在")
+def check_username(username: str, db: Session = Depends(get_db)):
+    """检查用户名是否已被使用"""
+    existing = db.query(Member).filter(Member.username == username).first()
+    return success_response({"exists": existing is not None})
+
 @router.put("/members/{member_id}/status", response_model=ResponseModel, summary="更新人员状态")
 def update_member_status(
     member_id: int,
