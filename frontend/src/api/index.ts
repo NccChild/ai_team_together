@@ -51,6 +51,9 @@ export const memberApi = {
 
   updateStatus: (id: number, status: string) =>
     apiClient.put<{ id: number; status: string }>(`/members/${id}/status`, { status }),
+
+  checkUsername: (username: string) =>
+    apiClient.get<{ exists: boolean }>(`/members/check-username/${username}`),
 };
 
 // ===========================================

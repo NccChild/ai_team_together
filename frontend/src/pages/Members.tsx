@@ -124,6 +124,16 @@ const Members: React.FC = () => {
     }
   };
 
+  const handleActivate = async (id: number) => {
+    try {
+      await memberApi.updateStatus(id, 'active');
+      message.success('已启用');
+      loadData();
+    } catch (error) {
+      message.error('操作失败');
+    }
+  };
+
   const handleResetPassword = (record: Member) => {
     setPasswordMemberId(record.id);
     passwordForm.resetFields();
@@ -260,7 +270,7 @@ const Members: React.FC = () => {
           >
             重置密码
           </Button>
-          {record.status === 'active' && (
+          {record.status === 'active' ? (
             <Popconfirm
               title="确定要停用此人员吗？"
               onConfirm={() => handleDelete(record.id)}
@@ -272,6 +282,20 @@ const Members: React.FC = () => {
                 icon={<DeleteOutlined />}
               >
                 停用
+              </Button>
+            </Popconfirm>
+          ) : (
+            <Popconfirm
+              title="确定要启用此人员吗？"
+              onConfirm={() => handleActivate(record.id)}
+            >
+              <Button
+                type="text"
+                size="small"
+                icon={<UserOutlined />}
+                className="text-[#006D4E]"
+              >
+                启用
               </Button>
             </Popconfirm>
           )}
@@ -390,7 +414,23 @@ const Members: React.FC = () => {
             <>
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
+                  <Form.Item
+                    name="username"
+                    label="用户名"
+                    rules={[
+                      { required: true, message: '请输入用户名' },
+                      {
+                        validator: async (_, value) => {
+                          if (!value) return;
+                          const res = await memberApi.checkUsername(value);
+                          if (res.exists) {
+                            return Promise.reject(new Error('用户名已存在，请更换'));
+                          }
+                        },
+                        validateTrigger: 'onBlur',
+                      },
+                    ]}
+                  >
                     <Input placeholder="请输入登录用户名" />
                   </Form.Item>
                 </Col>
