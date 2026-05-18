@@ -24,7 +24,7 @@ def get_members(
     unit: Optional[str] = Query(None, description="所属单位筛选"),
     skill_tag: Optional[str] = Query(None, description="能力标签筛选"),
     is_backbone: Optional[bool] = Query(None, description="是否骨干筛选"),
-    status: Optional[str] = Query("active", description="状态筛选"),
+    status: Optional[str] = Query(None, description="状态筛选"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=100, description="每页记录数"),
     db: Session = Depends(get_db)
