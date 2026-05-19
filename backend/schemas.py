@@ -335,6 +335,16 @@ class AchievementUpdate(BaseModel):
     """更新成果库"""
     is_excellent: bool
 
+
+class AchievementCreate(BaseModel):
+    """新增成果"""
+    name: str
+    description: Optional[str] = None
+    link: Optional[str] = None
+    achievement_type: Optional[str] = None
+    member_id: int
+    week_id: Optional[int] = None
+
 # ===========================================
 # 统计模型
 # ===========================================
