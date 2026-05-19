@@ -27,6 +27,11 @@ from backend.routers.achievements import router as achievements_router
 from backend.routers.dictionaries import router as dictionaries_router
 from backend.routers.export import router as export_router
 from backend.utils.exceptions import register_exception_handlers
+from backend.utils.logging_config import setup_logging
+from backend.middleware.request_id import RequestIDMiddleware
+
+# 初始化日志
+setup_logging()
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -128,6 +133,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request ID 中间件（在 CORS 之后、路由之前注册）
+app.add_middleware(RequestIDMiddleware)
 
 # 注册异常处理器
 register_exception_handlers(app)
