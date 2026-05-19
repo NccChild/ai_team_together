@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Header
 from sqlalchemy.orm import Session
 from typing import Optional
 from backend.database import get_db
-from backend.schemas import AchievementResponse, AchievementUpdate, ResponseModel
+from backend.schemas import AchievementResponse, AchievementUpdate, AchievementCreate, ResponseModel
 from backend.utils.response import success_response, success_list_response, error_response
 from backend.utils.exceptions import ResourceNotFoundException
 from backend.utils.security import verify_token
@@ -143,6 +143,49 @@ def mark_excellent(
         "id": achievement.id,
         "is_excellent": achievement.is_excellent
     }, message="标记成功")
+
+@router.post("/achievements", response_model=ResponseModel, summary="新增成果")
+def create_achievement(
+    achievement_data: AchievementCreate,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """新增成果（所有登录用户可操作）"""
+    if not authorization:
+        return error_response(code="NO_TOKEN", message="缺少认证令牌")
+    try:
+        scheme, token = authorization.split()
+    except ValueError:
+        return error_response(code="INVALID_HEADER", message="无效的 Authorization header 格式")
+    token_data = verify_token(token)
+    if not token_data:
+        return error_response(code="INVALID_TOKEN", message="令牌无效或已过期")
+
+    achievement = Achievement(
+        name=achievement_data.name,
+        description=achievement_data.description,
+        link=achievement_data.link,
+        achievement_type=achievement_data.achievement_type,
+        member_id=achievement_data.member_id,
+        week_id=achievement_data.week_id,
+    )
+    db.add(achievement)
+    db.commit()
+    db.refresh(achievement)
+
+    return success_response({
+        "id": achievement.id,
+        "name": achievement.name,
+        "description": achievement.description,
+        "link": achievement.link,
+        "achievement_type": achievement.achievement_type,
+        "member_id": achievement.member_id,
+        "member_name": achievement.member.name if achievement.member else None,
+        "week_id": achievement.week_id,
+        "week_name": achievement.week.name if achievement.week else None,
+        "is_excellent": achievement.is_excellent,
+        "created_at": achievement.created_at,
+    }, message="新增成功")
 
 def sync_task_to_achievements(task_id: int, db: Session):
     """将已完成任务的成果同步到成果库（内部函数）"""

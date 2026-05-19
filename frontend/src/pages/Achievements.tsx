@@ -3,11 +3,11 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Input, Select, Table, Tag, Button, Space, message } from 'antd';
-import { SearchOutlined, StarOutlined, TrophyOutlined, FileTextOutlined, LinkOutlined } from '@ant-design/icons';
+import { Row, Col, Input, Select, Table, Tag, Button, Space, message, Modal, Form, Tooltip } from 'antd';
+import { PlusOutlined, SearchOutlined, TrophyOutlined, FileTextOutlined, LinkOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { achievementApi, memberApi, weekApi, dictionaryApi } from '../api';
-import type { Achievement, Member, Week, Dictionaries } from '../types';
+import type { Achievement, AchievementCreate, Member, Week, Dictionaries } from '../types';
 
 // 森林绿主题色
 const colors = {
@@ -33,6 +33,10 @@ const Achievements: React.FC = () => {
     week_id?: number;
     is_excellent?: boolean;
   }>({ keyword: '' });
+
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createForm] = Form.useForm();
 
   useEffect(() => {
     loadReferenceData();
@@ -113,6 +117,24 @@ const Achievements: React.FC = () => {
       loadData();
     } catch (error) {
       message.error('操作失败');
+    }
+  };
+
+  const handleCreate = async () => {
+    try {
+      const values = await createForm.validateFields();
+      setCreateLoading(true);
+      await achievementApi.create(values as AchievementCreate);
+      message.success('新增成果成功');
+      setCreateModalOpen(false);
+      createForm.resetFields();
+      loadSummary();
+      loadData();
+    } catch (error: any) {
+      if (error?.errorFields) return; // 表单校验未通过
+      message.error('新增失败');
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -208,43 +230,27 @@ const Achievements: React.FC = () => {
     },
     {
       title: '优秀',
-      dataIndex: 'is_excellent',
-      key: 'is_excellent',
-      width: 80,
-      render: (isExcellent: boolean) => (
-        isExcellent ? (
-          <Tag
-            className="rounded-full px-3"
-            style={{ backgroundColor: '#fff7e6', borderColor: colors.gold, color: colors.gold }}
-          >
-            是
-          </Tag>
+      key: 'excellent',
+      width: 70,
+      render: (_: any, record: Achievement) => (
+        isAdmin ? (
+          <Tooltip title={record.is_excellent ? '取消优秀' : '标记为优秀'}>
+            <span
+              className={`text-xl cursor-pointer transition-colors ${
+                record.is_excellent ? 'text-yellow-500' : 'text-gray-200 hover:text-yellow-400'
+              }`}
+              onClick={() => handleMarkExcellent(record)}
+            >
+              ★
+            </span>
+          </Tooltip>
         ) : (
-          <Tag
-            className="rounded-full px-3"
-            style={{ backgroundColor: '#f5f5f5', borderColor: '#d9d9d9', color: '#666' }}
-          >
-            否
-          </Tag>
+          <span className={`text-xl ${record.is_excellent ? 'text-yellow-500' : 'text-gray-200'}`}>
+            ★
+          </span>
         )
       ),
     },
-    ...(isAdmin ? [{
-      title: '操作',
-      key: 'action',
-      width: 120,
-      render: (_: any, record: Achievement) => (
-        <Button
-          type="text"
-          size="small"
-          icon={<StarOutlined />}
-          onClick={() => handleMarkExcellent(record)}
-          className="rounded-full"
-        >
-          {record.is_excellent ? '取消' : '优秀'}
-        </Button>
-      ),
-    }] : []),
   ];
 
   // 统计数据（使用后端汇总数据）
@@ -260,6 +266,15 @@ const Achievements: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800">成果库</h2>
           <p className="text-gray-500 mt-1">管理团队工作成果和交付物</p>
         </div>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => setCreateModalOpen(true)}
+          className="rounded-full"
+          style={{ backgroundColor: colors.primary }}
+        >
+          新增成果
+        </Button>
       </div>
 
       {/* 统计卡片 */}
@@ -392,6 +407,63 @@ const Achievements: React.FC = () => {
           className="custom-table"
         />
       </div>
+
+      {/* 新增成果弹窗 */}
+      <Modal
+        title="新增成果"
+        open={createModalOpen}
+        onOk={handleCreate}
+        onCancel={() => { setCreateModalOpen(false); createForm.resetFields(); }}
+        confirmLoading={createLoading}
+        okText="确认新增"
+        cancelText="取消"
+        okButtonProps={{ style: { backgroundColor: colors.primary, borderColor: colors.primary } }}
+      >
+        <Form form={createForm} layout="vertical" className="mt-4">
+          <Form.Item name="name" label="成果名称" rules={[{ required: true, message: '请输入成果名称' }]}>
+            <Input placeholder="请输入成果名称" />
+          </Form.Item>
+          <Form.Item name="achievement_type" label="成果类型">
+            <Select placeholder="请选择成果类型" allowClear>
+              {dictionaries?.delivery_type?.map((item) => (
+                <Select.Option key={item.value} value={item.value}>
+                  {item.label}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="member_id" label="提交人" rules={[{ required: true, message: '请选择提交人' }]}>
+                <Select placeholder="请选择提交人" allowClear>
+                  {members.map((member) => (
+                    <Select.Option key={member.id} value={member.id}>
+                      {member.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="week_id" label="所属周次">
+                <Select placeholder="请选择周次" allowClear>
+                  {weeks.map((week) => (
+                    <Select.Option key={week.id} value={week.id}>
+                      {week.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="description" label="成果说明">
+            <Input.TextArea rows={3} placeholder="请输入成果说明" />
+          </Form.Item>
+          <Form.Item name="link" label="成果链接">
+            <Input placeholder="https://..." />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <style>{`
         .custom-table .ant-table-thead > tr > th {
