@@ -74,6 +74,18 @@ def get_achievements(
         "total_pages": (total + page_size - 1) // page_size if page_size > 0 else 0
     })
 
+@router.get("/achievements/summary", response_model=ResponseModel, summary="获取成果统计概览")
+def get_achievements_summary(db: Session = Depends(get_db)):
+    """获取成果统计概览（成果总数、优秀成果数）"""
+    query = db.query(Achievement)
+    total = query.count()
+    excellent_count = query.filter(Achievement.is_excellent == True).count()
+
+    return success_response({
+        "total": total,
+        "excellent_count": excellent_count,
+    })
+
 @router.get("/achievements/{achievement_id}", response_model=ResponseModel, summary="获取成果详情")
 def get_achievement(achievement_id: int, db: Session = Depends(get_db)):
     """获取成果详情"""

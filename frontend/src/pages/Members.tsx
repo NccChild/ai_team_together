@@ -28,11 +28,22 @@ const Members: React.FC = () => {
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [passwordMemberId, setPasswordMemberId] = useState<number | null>(null);
   const [passwordForm] = Form.useForm();
+  const [summary, setSummary] = useState({ total_active: 0, total_inactive: 0, total_backbone: 0 });
 
   useEffect(() => {
     loadDictionaries();
+    loadSummary();
     loadData();
   }, []);
+
+  const loadSummary = async () => {
+    try {
+      const res = await memberApi.getSummary();
+      setSummary(res);
+    } catch (error) {
+      console.error('加载统计信息失败:', error);
+    }
+  };
 
   const loadDictionaries = async () => {
     try {
@@ -43,16 +54,21 @@ const Members: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (page?: number, pageSize?: number) => {
     setLoading(true);
     try {
       const result = await memberApi.getList({
         keyword: searchKeyword || undefined,
-        page: pagination.current,
-        page_size: pagination.pageSize,
+        page: page ?? pagination.current,
+        page_size: pageSize ?? pagination.pageSize,
       });
       setData(result.items);
-      setPagination((prev) => ({ ...prev, total: result.total }));
+      setPagination((prev) => ({
+        ...prev,
+        current: page ?? prev.current,
+        pageSize: pageSize ?? prev.pageSize,
+        total: result.total,
+      }));
     } catch (error) {
       message.error('加载数据失败');
     } finally {
@@ -61,17 +77,11 @@ const Members: React.FC = () => {
   };
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, current: 1 }));
-    loadData();
+    loadData(1);
   };
 
   const handleTableChange = (paginationConfig: any) => {
-    setPagination((prev) => ({
-      ...prev,
-      current: paginationConfig.current,
-      pageSize: paginationConfig.pageSize,
-    }));
-    loadData();
+    loadData(paginationConfig.current, paginationConfig.pageSize);
   };
 
   const handleAdd = () => {
@@ -118,6 +128,7 @@ const Members: React.FC = () => {
     try {
       await memberApi.updateStatus(id, 'inactive');
       message.success('已停用');
+      loadSummary();
       loadData();
     } catch (error) {
       message.error('操作失败');
@@ -128,6 +139,7 @@ const Members: React.FC = () => {
     try {
       await memberApi.updateStatus(id, 'active');
       message.success('已启用');
+      loadSummary();
       loadData();
     } catch (error) {
       message.error('操作失败');
@@ -329,7 +341,7 @@ const Members: React.FC = () => {
           <div className="bg-[#E8F5E9] rounded-xl p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-[#006D4E]">{data.filter(m => m.status === 'active').length}</div>
+                <div className="text-3xl font-bold text-[#006D4E]">{summary.total_active}</div>
                 <div className="text-sm text-gray-600 mt-1">在职成员</div>
               </div>
               <TeamOutlined className="text-4xl text-[#006D4E]/30" />
@@ -340,7 +352,7 @@ const Members: React.FC = () => {
           <div className="bg-amber-50 rounded-xl p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-amber-600">{data.filter(m => m.is_backbone).length}</div>
+                <div className="text-3xl font-bold text-amber-600">{summary.total_backbone}</div>
                 <div className="text-sm text-gray-600 mt-1">骨干成员</div>
               </div>
               <StarOutlined className="text-4xl text-amber-600/30" />
@@ -351,7 +363,7 @@ const Members: React.FC = () => {
           <div className="bg-gray-100 rounded-xl p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-gray-600">{data.filter(m => m.status !== 'active').length}</div>
+                <div className="text-3xl font-bold text-gray-600">{summary.total_inactive}</div>
                 <div className="text-sm text-gray-600 mt-1">已停用</div>
               </div>
               <UserOutlined className="text-4xl text-gray-400" />
@@ -417,6 +429,7 @@ const Members: React.FC = () => {
                   <Form.Item
                     name="username"
                     label="用户名"
+                    validateTrigger="onBlur"
                     rules={[
                       { required: true, message: '请输入用户名' },
                       {
@@ -427,7 +440,6 @@ const Members: React.FC = () => {
                             return Promise.reject(new Error('用户名已存在，请更换'));
                           }
                         },
-                        validateTrigger: 'onBlur',
                       },
                     ]}
                   >
