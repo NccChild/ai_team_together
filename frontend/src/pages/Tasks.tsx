@@ -202,9 +202,7 @@ const Tasks: React.FC = () => {
 
   // 格式化周次显示（周次名称 + 起止日期）
   const formatWeekOption = (week: Week) => {
-    const startDate = dayjs(week.start_date).format('MM/DD');
-    const endDate = dayjs(week.end_date).format('MM/DD');
-    return `${week.name} (${startDate}-${endDate})`;
+    return week.name;
   };
 
   const handleView = async (record: Task) => {
