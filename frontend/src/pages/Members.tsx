@@ -93,12 +93,16 @@ const Members: React.FC = () => {
 
   const handleEdit = (record: Member) => {
     setEditingId(record.id);
+    const skillTags = record.skill_tags?.map((tag) => {
+      const dict = dictionaries?.skill_tag?.find((t) => t.value === tag);
+      return dict?.label || tag;
+    });
     form.setFieldsValue({
       name: record.name,
       unit: record.unit,
       contact: record.contact,
       email: record.email,
-      skill_tags: record.skill_tags,
+      skill_tags: skillTags,
       is_backbone: record.is_backbone,
     });
     setModalVisible(true);
@@ -115,6 +119,7 @@ const Members: React.FC = () => {
         message.success('创建成功');
       }
       setModalVisible(false);
+      loadSummary();
       loadData();
     } catch (error: any) {
       console.error('创建/更新成员失败:', error);
