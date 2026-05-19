@@ -3,8 +3,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Input, Select, Table, Tag, Button, Space, message } from 'antd';
-import { SearchOutlined, StarOutlined, SyncOutlined, TrophyOutlined, FileTextOutlined, LinkOutlined } from '@ant-design/icons';
+import { Row, Col, Input, Select, Table, Tag, Button, Space, message } from 'antd';
+import { SearchOutlined, StarOutlined, TrophyOutlined, FileTextOutlined, LinkOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { achievementApi, memberApi, weekApi, dictionaryApi } from '../api';
 import type { Achievement, Member, Week, Dictionaries } from '../types';
@@ -12,9 +12,7 @@ import type { Achievement, Member, Week, Dictionaries } from '../types';
 // 森林绿主题色
 const colors = {
   primary: '#006D4E',
-  secondary: '#26A67A',
   gold: '#D4AF37',
-  warning: '#fa8c16',
 };
 
 const Achievements: React.FC = () => {
@@ -27,18 +25,29 @@ const Achievements: React.FC = () => {
   const [dictionaries, setDictionaries] = useState<Dictionaries | null>(null);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [summary, setSummary] = useState({ total: 0, excellent_count: 0 });
   const [filters, setFilters] = useState<{
-    keyword?: string;
+    keyword: string;
     achievement_type?: string;
     member_id?: number;
     week_id?: number;
     is_excellent?: boolean;
-  }>({});
+  }>({ keyword: '' });
 
   useEffect(() => {
     loadReferenceData();
+    loadSummary();
     loadData();
   }, []);
+
+  const loadSummary = async () => {
+    try {
+      const res = await achievementApi.getSummary();
+      setSummary(res);
+    } catch (error) {
+      console.error('加载统计信息失败:', error);
+    }
+  };
 
   const loadReferenceData = async () => {
     try {
@@ -55,16 +64,21 @@ const Achievements: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (page?: number, pageSize?: number) => {
     setLoading(true);
     try {
       const result = await achievementApi.getList({
         ...filters,
-        page: pagination.current,
-        page_size: pagination.pageSize,
+        page: page ?? pagination.current,
+        page_size: pageSize ?? pagination.pageSize,
       });
       setAchievements(result.items);
-      setPagination((prev) => ({ ...prev, total: result.total }));
+      setPagination((prev) => ({
+        ...prev,
+        current: page ?? prev.current,
+        pageSize: pageSize ?? prev.pageSize,
+        total: result.total,
+      }));
     } catch (error) {
       message.error('加载数据失败');
     } finally {
@@ -73,23 +87,18 @@ const Achievements: React.FC = () => {
   };
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, current: 1 }));
-    loadData();
+    loadData(1);
   };
 
   const handleTableChange = (paginationConfig: any) => {
-    setPagination((prev) => ({
-      ...prev,
-      current: paginationConfig.current,
-      pageSize: paginationConfig.pageSize,
-    }));
-    loadData();
+    loadData(paginationConfig.current, paginationConfig.pageSize);
   };
 
   const handleSync = async () => {
     try {
       const result = await achievementApi.sync();
       message.success(`成功同步 ${result.synced_count} 条成果`);
+      loadSummary();
       loadData();
     } catch (error) {
       message.error('同步失败');
@@ -100,6 +109,7 @@ const Achievements: React.FC = () => {
     try {
       await achievementApi.markExcellent(record.id, !record.is_excellent);
       message.success(record.is_excellent ? '已取消优秀标记' : '已标记为优秀');
+      loadSummary();
       loadData();
     } catch (error) {
       message.error('操作失败');
@@ -237,10 +247,10 @@ const Achievements: React.FC = () => {
     }] : []),
   ];
 
-  // 统计数据
+  // 统计数据（使用后端汇总数据）
   const stats = {
-    total: pagination.total,
-    excellent: achievements.filter(a => a.is_excellent).length,
+    total: summary.total,
+    excellent: summary.excellent_count,
   };
 
   return (

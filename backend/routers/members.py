@@ -24,7 +24,8 @@ def get_members(
     unit: Optional[str] = Query(None, description="所属单位筛选"),
     skill_tag: Optional[str] = Query(None, description="能力标签筛选"),
     is_backbone: Optional[bool] = Query(None, description="是否骨干筛选"),
-    status: Optional[str] = Query("active", description="状态筛选"),
+    # status: Optional[str] = Query("active", description="状态筛选"),
+    status: Optional[str] = Query(None, description="状态筛选"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=100, description="每页记录数"),
     db: Session = Depends(get_db)
@@ -134,6 +135,22 @@ def create_member(
         "updated_at": member.updated_at
     }, message="成员创建成功")
 
+@router.get("/members/summary", response_model=ResponseModel, summary="获取人员统计概览")
+def get_members_summary(db: Session = Depends(get_db)):
+    """获取人员统计概览（在职、停用、骨干等数量）"""
+    query = db.query(Member).filter(Member.role != "admin")
+
+    total_active = query.filter(Member.status == "active").count()
+    total_inactive = query.filter(Member.status != "active").count()
+    total_backbone = query.filter(Member.is_backbone == True, Member.status == "active").count()
+
+    return success_response({
+        "total_active": total_active,
+        "total_inactive": total_inactive,
+        "total_backbone": total_backbone,
+        "total": total_active + total_inactive
+    })
+
 @router.get("/members/{member_id}", response_model=ResponseModel, summary="获取人员详情")
 def get_member(member_id: int, db: Session = Depends(get_db)):
     """根据ID获取人员详情"""
@@ -184,6 +201,12 @@ def update_member(
         "created_at": member.created_at,
         "updated_at": member.updated_at
     }, message="人员更新成功")
+
+@router.get("/members/check-username/{username}", response_model=ResponseModel, summary="检查用户名是否已存在")
+def check_username(username: str, db: Session = Depends(get_db)):
+    """检查用户名是否已被使用"""
+    existing = db.query(Member).filter(Member.username == username).first()
+    return success_response({"exists": existing is not None})
 
 @router.put("/members/{member_id}/status", response_model=ResponseModel, summary="更新人员状态")
 def update_member_status(

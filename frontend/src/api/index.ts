@@ -51,6 +51,12 @@ export const memberApi = {
 
   updateStatus: (id: number, status: string) =>
     apiClient.put<{ id: number; status: string }>(`/members/${id}/status`, { status }),
+
+  checkUsername: (username: string) =>
+    apiClient.get<{ exists: boolean }>(`/members/check-username/${username}`),
+
+  getSummary: () =>
+    apiClient.get<{ total_active: number; total_inactive: number; total_backbone: number; total: number }>('/members/summary'),
 };
 
 // ===========================================
@@ -215,6 +221,9 @@ export const achievementApi = {
     apiClient.post<{ synced_count: number }>('/achievements/sync', null, {
       params: { task_id: taskId, week_id: weekId },
     }),
+
+  getSummary: () =>
+    apiClient.get<{ total: number; excellent_count: number }>('/achievements/summary'),
 };
 
 // ===========================================
