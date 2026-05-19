@@ -12,7 +12,7 @@ from urllib.parse import quote
 from backend.database import get_db
 from backend.utils.response import success_response
 from backend.utils.exceptions import ResourceNotFoundException
-from backend.models import Task, Evaluation, Member, Delivery, Week
+from backend.models import Task, Evaluation, Member, Week, Achievement
 from backend.config import TASK_STATUS, TASK_TYPES, TASK_DIFFICULTY, EVALUATION_LEVELS
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -199,35 +199,36 @@ def export_member_statistics(
     filename = f"个人贡献统计_{week_name}_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return create_excel_response(filename, wb)
 
-@router.get("/export/achievements", summary="导出不优秀成果清单")
+@router.get("/export/achievements", summary="导出成果清单")
 def export_achievements(
     week_id: Optional[int] = Query(None, description="周次ID"),
     db: Session = Depends(get_db)
 ):
-    """导出成果清单"""
-    query = db.query(Delivery).filter(Delivery.is_latest == True)
+    """导出成果清单（从成果库读取）"""
+    query = db.query(Achievement)
 
     if week_id:
-        query = query.join(Task, Delivery.task_id == Task.id).filter(Task.week_id == week_id)
+        query = query.filter(Achievement.week_id == week_id)
 
-    deliveries = query.all()
+    achievements = query.order_by(Achievement.created_at.desc()).all()
 
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "成果清单"
 
-    headers = ["序号", "成果名称", "成果说明", "成果链接", "成果类型", "提交人", "提交时间", "是否优秀"]
+    headers = ["序号", "成果名称", "成果说明", "成果链接", "成果类型", "提交人", "所属周次", "提交时间", "是否优秀"]
     style_header(ws, headers)
 
-    for idx, d in enumerate(deliveries, 2):
+    for idx, a in enumerate(achievements, 2):
         ws.cell(row=idx, column=1, value=idx - 1)
-        ws.cell(row=idx, column=2, value=d.name)
-        ws.cell(row=idx, column=3, value=d.description or "")
-        ws.cell(row=idx, column=4, value=d.link or "")
-        ws.cell(row=idx, column=5, value=d.delivery_type or "")
-        ws.cell(row=idx, column=6, value=d.submitter.name if d.submitter else "")
-        ws.cell(row=idx, column=7, value=d.submitted_at.strftime("%Y-%m-%d %H:%M") if d.submitted_at else "")
-        ws.cell(row=idx, column=8, value="")
+        ws.cell(row=idx, column=2, value=a.name)
+        ws.cell(row=idx, column=3, value=a.description or "")
+        ws.cell(row=idx, column=4, value=a.link or "")
+        ws.cell(row=idx, column=5, value=a.achievement_type or "")
+        ws.cell(row=idx, column=6, value=a.member.name if a.member else "")
+        ws.cell(row=idx, column=7, value=a.week.name if a.week else "")
+        ws.cell(row=idx, column=8, value=a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "")
+        ws.cell(row=idx, column=9, value="★" if a.is_excellent else "")
 
     for col in range(1, len(headers) + 1):
         ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 18

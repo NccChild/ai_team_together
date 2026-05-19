@@ -11,7 +11,7 @@ from backend.schemas import (
 )
 from backend.utils.response import success_response, success_list_response
 from backend.utils.exceptions import ResourceNotFoundException, ValidationException
-from backend.models import Evaluation, Task, Delivery
+from backend.models import Evaluation, Task, Achievement
 from backend.config import DEFAULT_PAGE_SIZE, EVALUATION_SCORES
 from backend.services.llm_service import LLMService
 
@@ -84,16 +84,19 @@ def create_evaluation(eval_data: EvaluationCreate, db: Session = Depends(get_db)
     if existing_eval:
         raise ValidationException("该任务已经评价过了，如需修改请使用编辑功能")
 
-    # 获取任务交付物
+    # 获取任务成果（从成果库读取）
+    achievements = db.query(Achievement).filter(
+        Achievement.task_id == task.id
+    ).order_by(Achievement.created_at.desc()).all()
+
     deliveries = []
-    for d in task.deliveries:
-        if d.is_latest:
-            deliveries.append({
-                "name": d.name,
-                "description": d.description,
-                "link": d.link,
-                "delivery_type": d.delivery_type
-            })
+    for a in achievements:
+        deliveries.append({
+            "name": a.name,
+            "description": a.description,
+            "link": a.link,
+            "delivery_type": a.achievement_type
+        })
 
     # 调用大模型生成评价
     member = task.assignee
@@ -157,11 +160,9 @@ def get_pending_evaluations(db: Session = Depends(get_db)):
 
     items = []
     for t in tasks:
-        latest_delivery = None
-        for d in t.deliveries:
-            if d.is_latest:
-                latest_delivery = d
-                break
+        latest_achievement = db.query(Achievement).filter(
+            Achievement.task_id == t.id
+        ).order_by(Achievement.created_at.desc()).first()
 
         items.append({
             "task_id": t.id,
@@ -169,7 +170,7 @@ def get_pending_evaluations(db: Session = Depends(get_db)):
             "assignee_id": t.assignee_id,
             "assignee_name": t.assignee.name if t.assignee else None,
             "deadline": t.deadline,
-            "submitted_at": latest_delivery.submitted_at if latest_delivery else None,
+            "submitted_at": latest_achievement.created_at if latest_achievement else None,
             "week_name": t.week.name if t.week else None
         })
 
