@@ -222,11 +222,14 @@ const Members: React.FC = () => {
       key: 'skill_tags',
       render: (tags: string[]) => (
         <div className="flex flex-wrap gap-1">
-          {tags?.slice(0, 3).map((tag) => (
-            <Tag key={tag} className="bg-[#E8F5E9] text-[#006D4E] border-0 rounded-full text-xs">
-              {tag}
-            </Tag>
-          ))}
+          {tags?.slice(0, 3).map((tag) => {
+            const dict = dictionaries?.skill_tag?.find((t) => t.value === tag);
+            return (
+              <Tag key={tag} className="bg-[#E8F5E9] text-[#006D4E] border-0 rounded-full text-xs">
+                {dict?.label || tag}
+              </Tag>
+            );
+          })}
           {tags && tags.length > 3 && (
             <Tag className="bg-gray-100 text-gray-500 border-0 rounded-full text-xs">
               +{tags.length - 3}
@@ -472,7 +475,7 @@ const Members: React.FC = () => {
           <Form.Item name="skill_tags" label="能力标签">
             <Select mode="multiple" placeholder="请选择能力标签" allowClear>
               {dictionaries?.skill_tag?.map((item) => (
-                <Select.Option key={item.value} value={item.value}>{item.label}</Select.Option>
+                <Select.Option key={item.value} value={item.label}>{item.label}</Select.Option>
               ))}
             </Select>
           </Form.Item>
