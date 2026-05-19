@@ -10,7 +10,7 @@ from backend.schemas import AchievementResponse, AchievementUpdate, AchievementC
 from backend.utils.response import success_response, success_list_response, error_response
 from backend.utils.exceptions import ResourceNotFoundException
 from backend.utils.security import verify_token
-from backend.models import Achievement, Delivery, Task, Member
+from backend.models import Achievement, Member
 from backend.config import DEFAULT_PAGE_SIZE
 
 router = APIRouter()
@@ -187,35 +187,3 @@ def create_achievement(
         "created_at": achievement.created_at,
     }, message="新增成功")
 
-def sync_task_to_achievements(task_id: int, db: Session):
-    """将已完成任务的成果同步到成果库（内部函数）"""
-    task = db.query(Task).filter(Task.id == task_id).first()
-    if not task or task.status != "completed":
-        return
-
-    latest_delivery = None
-    for d in task.deliveries:
-        if d.is_latest:
-            latest_delivery = d
-            break
-
-    if not latest_delivery:
-        return
-
-    existing = db.query(Achievement).filter(
-        Achievement.task_id == task.id
-    ).first()
-
-    if not existing:
-        achievement = Achievement(
-            delivery_id=latest_delivery.id,
-            task_id=task.id,
-            name=latest_delivery.name,
-            description=latest_delivery.description,
-            link=latest_delivery.link,
-            achievement_type=latest_delivery.delivery_type,
-            member_id=task.assignee_id,
-            week_id=task.week_id
-        )
-        db.add(achievement)
-        db.commit()

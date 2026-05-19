@@ -13,7 +13,7 @@ from backend.schemas import (
 )
 from backend.utils.response import success_response, success_list_response
 from backend.utils.exceptions import ResourceNotFoundException, ValidationException
-from backend.models import Task, Member, Week, Delivery, Evaluation, Achievement
+from backend.models import Task, Member, Week, Evaluation, Achievement
 from backend.utils.datetime_utils import is_overdue as check_overdue
 from backend.config import DEFAULT_PAGE_SIZE, TASK_STATUS, EVALUATION_SCORES
 
@@ -146,20 +146,25 @@ def get_task(task_id: int, db: Session = Depends(get_db)):
             task.is_overdue = True
             db.commit()
 
-    # 获取成果列表
+    # 获取成果列表（从成果库读取）
+    achievements = db.query(Achievement).filter(
+        Achievement.task_id == task.id
+    ).order_by(Achievement.created_at.desc()).all()
+
     deliveries = []
-    for d in task.deliveries:
+    total_ach = len(achievements)
+    for i, a in enumerate(achievements):
         deliveries.append({
-            "id": d.id,
-            "name": d.name,
-            "description": d.description,
-            "link": d.link,
-            "delivery_type": d.delivery_type,
-            "submitter_id": d.submitter_id,
-            "submitter_name": d.submitter.name if d.submitter else None,
-            "submitted_at": d.submitted_at,
-            "is_latest": d.is_latest,
-            "update_description": d.update_description
+            "id": a.id,
+            "name": a.name,
+            "description": a.description,
+            "link": a.link,
+            "delivery_type": a.achievement_type,
+            "submitter_id": a.member_id,
+            "submitter_name": a.member.name if a.member else None,
+            "submitted_at": a.created_at,
+            "is_latest": i == 0,  # 最新的排在第一个
+            "update_description": None
         })
 
     # 获取评价列表
@@ -235,8 +240,9 @@ def delete_task(task_id: int, db: Session = Depends(get_db)):
     if not task:
         raise ResourceNotFoundException("任务", task_id)
 
-    # 检查是否有成果
-    if task.deliveries:
+    # 检查是否有成果（从成果库检查）
+    existing_ach = db.query(Achievement).filter(Achievement.task_id == task_id).first()
+    if existing_ach:
         raise ValidationException("任务已有成果提交，不允许删除")
 
     # 检查是否有评价
@@ -280,11 +286,6 @@ def update_task_status(
     db.commit()
     db.refresh(task)
 
-    # 任务完成时自动同步到成果库
-    if new_status == "completed":
-        from backend.routers.achievements import sync_task_to_achievements
-        sync_task_to_achievements(task_id, db)
-
     return success_response({
         "id": task.id,
         "status": task.status,
@@ -297,60 +298,59 @@ def create_delivery(
     delivery_data: DeliveryCreate,
     db: Session = Depends(get_db)
 ):
-    """为任务提交成果"""
+    """为任务提交成果（直接写入成果库）"""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise ResourceNotFoundException("任务", task_id)
 
-    # 将之前的最新成果标记为非最新
-    for d in task.deliveries:
-        d.is_latest = False
-
-    # 创建新成果
-    delivery = Delivery(
+    # 直接写入成果库（Achievement 表）
+    achievement = Achievement(
         task_id=task_id,
         name=delivery_data.name,
         description=delivery_data.description,
         link=delivery_data.link,
-        delivery_type=delivery_data.delivery_type,
-        submitter_id=delivery_data.submitter_id,
-        update_description=delivery_data.update_description,
-        is_latest=True
+        achievement_type=delivery_data.delivery_type,
+        member_id=delivery_data.submitter_id,
+        week_id=task.week_id,
     )
-    db.add(delivery)
+    db.add(achievement)
 
     # 更新任务状态为已提交
     task.status = "submitted"
     task.is_overdue = False
 
     db.commit()
-    db.refresh(delivery)
+    db.refresh(achievement)
 
     return success_response({
-        "id": delivery.id,
-        "name": delivery.name,
-        "submitted_at": delivery.submitted_at
+        "id": achievement.id,
+        "name": achievement.name,
+        "submitted_at": achievement.created_at
     }, message="成果提交成功")
 
 @router.get("/tasks/{task_id}/deliveries", response_model=ResponseModel, summary="获取任务成果列表")
 def get_task_deliveries(task_id: int, db: Session = Depends(get_db)):
-    """获取任务的成果提交记录"""
+    """获取任务的成果提交记录（从成果库读取）"""
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
         raise ResourceNotFoundException("任务", task_id)
 
+    achievements = db.query(Achievement).filter(
+        Achievement.task_id == task_id
+    ).order_by(Achievement.created_at.desc()).all()
+
     deliveries = [{
-        "id": d.id,
-        "name": d.name,
-        "description": d.description,
-        "link": d.link,
-        "delivery_type": d.delivery_type,
-        "submitter_id": d.submitter_id,
-        "submitter_name": d.submitter.name if d.submitter else None,
-        "submitted_at": d.submitted_at,
-        "is_latest": d.is_latest,
-        "update_description": d.update_description
-    } for d in task.deliveries]
+        "id": a.id,
+        "name": a.name,
+        "description": a.description,
+        "link": a.link,
+        "delivery_type": a.achievement_type,
+        "submitter_id": a.member_id,
+        "submitter_name": a.member.name if a.member else None,
+        "submitted_at": a.created_at,
+        "is_latest": i == 0,
+        "update_description": None
+    } for i, a in enumerate(achievements)]
 
     return success_response({"items": deliveries, "total": len(deliveries)})
 

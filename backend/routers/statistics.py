@@ -9,7 +9,7 @@ from typing import Optional
 from backend.database import get_db
 from backend.utils.response import success_response, success_list_response
 from backend.schemas import ResponseModel
-from backend.models import Task, Member, Evaluation, Delivery, Week
+from backend.models import Task, Member, Evaluation, Week, Achievement
 from backend.utils.datetime_utils import get_current_week, format_date
 
 router = APIRouter()
@@ -244,7 +244,7 @@ def get_member_stats(
         Evaluation.level == "excellent"
     ).scalar()
 
-    delivery_count = db.query(Delivery).filter(Delivery.submitter_id == member_id).count()
+    delivery_count = db.query(Achievement).filter(Achievement.member_id == member_id).count()
 
     return success_response({
         "member_id": member_id,
