@@ -56,12 +56,16 @@ def register_exception_handlers(app):
     @app.exception_handler(BusinessException)
     async def business_exception_handler(request: Request, exc: BusinessException):
         """处理业务异常"""
+        request_id = getattr(request.state, "request_id", "")
+        logger.warning("Business exception: code=%s message=%s details=%s request_id=%s",
+                       exc.code, exc.message, exc.details, request_id)
         return JSONResponse(
             status_code=200,  # 业务异常返回 200，通过 code 区分
             content={
                 "code": exc.code,
                 "message": exc.message,
                 "error": exc.details,
+                "request_id": request_id,
                 "timestamp": datetime.now().isoformat()
             }
         )
@@ -69,12 +73,16 @@ def register_exception_handlers(app):
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """处理 HTTP 异常"""
+        request_id = getattr(request.state, "request_id", "")
+        logger.warning("HTTP exception: status=%s detail=%s request_id=%s",
+                       exc.status_code, exc.detail, request_id)
         return JSONResponse(
             status_code=exc.status_code,
             content={
                 "code": str(exc.status_code),
                 "message": exc.detail,
                 "error": {},
+                "request_id": request_id,
                 "timestamp": datetime.now().isoformat()
             }
         )
@@ -82,13 +90,15 @@ def register_exception_handlers(app):
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
         """处理未捕获的异常"""
-        logger.error(f"Unhandled exception: {exc}", exc_info=True)
+        request_id = getattr(request.state, "request_id", "")
+        logger.error("Unhandled exception: request_id=%s", request_id, exc_info=exc)
         return JSONResponse(
             status_code=500,
             content={
                 "code": "500",
                 "message": "服务器内部错误",
                 "error": {"detail": str(exc) if logger.level == logging.DEBUG else "请联系管理员"},
+                "request_id": request_id,
                 "timestamp": datetime.now().isoformat()
             }
         )
