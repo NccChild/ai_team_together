@@ -269,26 +269,15 @@ const Weeks: React.FC = () => {
           <p className="text-sm text-gray-500 mt-1">管理每周任务计划，追踪完成进度</p>
         </div>
         {isAdmin && (
-          <Space>
-            <Button
-              type="primary"
-              size="large"
-              icon={<PlusOutlined />}
-              className="bg-[#006D4E] rounded-full hover:bg-[#005A40]"
-              onClick={() => setBatchModalVisible(true)}
-            >
-              批量生成周次
-            </Button>
-            <Button
-              type="default"
-              size="large"
-              icon={<PlusOutlined />}
-              className="rounded-full"
-              onClick={() => setModalVisible(true)}
-            >
-              创建周次
-            </Button>
-          </Space>
+          <Button
+            type="primary"
+            size="large"
+            icon={<PlusOutlined />}
+            className="bg-[#006D4E] rounded-full hover:bg-[#005A40]"
+            onClick={() => setBatchModalVisible(true)}
+          >
+            周次生成
+          </Button>
         )}
       </div>
 
@@ -448,7 +437,13 @@ const Weeks: React.FC = () => {
             rules={[{ required: true, message: '请选择月份' }]}
             extra="选择月份后，系统将自动计算该月包含的标准自然周并一次性生成。"
           >
-            <DatePicker picker="month" style={{ width: '100%' }} placeholder="请选择月份" />
+            <DatePicker
+              picker="month"
+              style={{ width: '100%' }}
+              placeholder="请选择月份"
+              // 💡 核心：限制最小只能看/选当前月。这样上一年的按钮会直接变灰禁用
+              minDate={dayjs().startOf('month')} 
+            />
           </Form.Item>
         </Form>
       </Modal>
