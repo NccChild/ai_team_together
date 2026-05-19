@@ -220,6 +220,15 @@ export interface Achievement {
   created_at: string;
 }
 
+export interface AchievementCreate {
+  name: string;
+  description?: string;
+  link?: string;
+  achievement_type?: string;
+  member_id: number;
+  week_id?: number;
+}
+
 // 统计
 export interface DashboardStats {
   total_tasks: number;

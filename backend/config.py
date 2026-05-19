@@ -119,7 +119,9 @@ DELIVERY_TYPES = {
     "prompt_template": "Prompt模板",
     "code_tool": "代码工具",
     "case_analysis": "案例分析",
-    "learning_material": "学习材料"
+    "learning_material": "学习材料",
+    "code":"代码",
+    "doc":"doc文档"
 }
 
 # ===========================================

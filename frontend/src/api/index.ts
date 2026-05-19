@@ -18,6 +18,7 @@ import type {
   WeeklyReport,
   WeeklyReportCreate,
   Achievement,
+  AchievementCreate,
   DashboardStats,
   MemberRanking,
   WeekSummary,
@@ -211,6 +212,9 @@ export const achievementApi = {
   }) => apiClient.get<PageResponse<Achievement>>('/achievements', params),
 
   getById: (id: number) => apiClient.get<Achievement>(`/achievements/${id}`),
+
+  create: (data: AchievementCreate) =>
+    apiClient.post<Achievement>('/achievements', data),
 
   markExcellent: (id: number, isExcellent: boolean) =>
     apiClient.put<{ id: number; is_excellent: boolean }>(`/achievements/${id}/excellent`, {
