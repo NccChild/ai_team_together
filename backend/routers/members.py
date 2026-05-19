@@ -134,6 +134,22 @@ def create_member(
         "updated_at": member.updated_at
     }, message="成员创建成功")
 
+@router.get("/members/summary", response_model=ResponseModel, summary="获取人员统计概览")
+def get_members_summary(db: Session = Depends(get_db)):
+    """获取人员统计概览（在职、停用、骨干等数量）"""
+    query = db.query(Member).filter(Member.role != "admin")
+
+    total_active = query.filter(Member.status == "active").count()
+    total_inactive = query.filter(Member.status != "active").count()
+    total_backbone = query.filter(Member.is_backbone == True, Member.status == "active").count()
+
+    return success_response({
+        "total_active": total_active,
+        "total_inactive": total_inactive,
+        "total_backbone": total_backbone,
+        "total": total_active + total_inactive
+    })
+
 @router.get("/members/{member_id}", response_model=ResponseModel, summary="获取人员详情")
 def get_member(member_id: int, db: Session = Depends(get_db)):
     """根据ID获取人员详情"""
