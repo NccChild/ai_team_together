@@ -3,8 +3,16 @@ FastAPI 应用入口
 人工智能专班任务与成果跟踪小工具后端服务
 """
 
+import sys
+from pathlib import Path
+
+# 将项目根目录加入 sys.path，确保直接运行 main.py 时也能正确导入
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 from backend.config import APP_NAME, APP_VERSION
 from backend.database import engine
 from backend.models import Base
@@ -23,11 +31,12 @@ from backend.utils.exceptions import register_exception_handlers
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
 
-# 创建 FastAPI 应用实例
+# 创建 FastAPI 应用实例（不启用默认 docs，自定义 docs 以支持自动鉴权）
 app = FastAPI(
     title=APP_NAME,
     version=APP_VERSION,
-    description="人工智能专班任务与成果跟踪小工具后端接口"
+    description="人工智能专班任务与成果跟踪小工具后端接口",
+    docs_url=None
 )
 
 
@@ -58,6 +67,58 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 # ==========================================================
+
+# ==================== 自定义 Swagger UI（自动记住 token） ====================
+AUTO_AUTH_SCRIPT = """
+<script>
+(function() {
+    function setupAutoAuth() {
+        var check = setInterval(function() {
+            if (window.ui) {
+                clearInterval(check);
+                var savedToken = window.localStorage.getItem('swagger_ui_auth_token');
+
+                // 拦截登录请求响应，自动保存 token
+                var origFetch = window.fetch;
+                window.fetch = function() {
+                    var args = arguments;
+                    return origFetch.apply(this, args).then(function(resp) {
+                        if (typeof args[0] === 'string' && args[0].indexOf('/auth/login') !== -1) {
+                            resp.clone().json().then(function(data) {
+                                if (data.data && data.data.access_token) {
+                                    var token = 'Bearer ' + data.data.access_token;
+                                    window.localStorage.setItem('swagger_ui_auth_token', token);
+                                    window.ui.preauthorizeApiKey('BearerAuth', token);
+                                }
+                            }).catch(function() {});
+                        }
+                        return resp;
+                    });
+                };
+
+                // 页面加载时恢复已保存的 token
+                if (savedToken) {
+                    window.ui.preauthorizeApiKey('BearerAuth', savedToken);
+                }
+            }
+        }, 200);
+    }
+    setupAutoAuth();
+})();
+</script>
+"""
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    result = get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=app.title + " - Swagger UI",
+        swagger_ui_parameters={"persistAuthorization": True},
+    )
+    content = result.body.decode()
+    content = content.replace('</body>', AUTO_AUTH_SCRIPT + '\n</body>')
+    return HTMLResponse(content=content)
+# ==================================================================
 
 # 配置 CORS 中间件，允许前端跨域访问
 app.add_middleware(
@@ -105,5 +166,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
-        reload_dirs=["D:/WorkSpace/ai_team_task_platform"]
+        reload_dirs=[str(Path(__file__).resolve().parent.parent)]
     )

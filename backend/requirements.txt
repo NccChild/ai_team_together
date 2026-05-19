@@ -14,7 +14,7 @@ pydantic-settings==2.1.0
 # 认证相关
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
-pyjwt==2.8.1
+pyjwt
 
 # HTTP客户端（用于调用大模型API）
 httpx==0.26.0
