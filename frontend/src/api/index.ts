@@ -263,8 +263,14 @@ export const exportApi = {
     window.open(`${API_BASE_URL}/export/member-statistics${params}`);
   },
 
-  exportAchievements: (weekId?: number) => {
-    const params = weekId ? `?week_id=${weekId}` : '';
-    window.open(`${API_BASE_URL}/export/achievements${params}`);
+  exportAchievements: (params?: { week_id?: number; keyword?: string; achievement_type?: string; member_id?: number; is_excellent?: boolean }) => {
+    const query = params ? '?' + new URLSearchParams(
+      Object.entries(params).filter(([_, v]) => v !== undefined && v !== '') as string[][]
+    ).toString() : '';
+    window.open(`${API_BASE_URL}/export/achievements${query}`);
+  },
+
+  exportWeeklyReportWord: (weekId: number) => {
+    window.open(`${API_BASE_URL}/export/weekly-report-word?week_id=${weekId}`);
   },
 };
