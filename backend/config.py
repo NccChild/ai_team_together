@@ -36,11 +36,14 @@ DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
 # ===========================================
 # 大模型配置
 # ===========================================
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "qwen")  # qwen, deepseek, minimax
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen-turbo")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek")  # qwen, deepseek, minimax
+LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-170d3bd0c4764286a27a62423202aff7")
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-chat")
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "60"))
+
+# Prompt 模板目录
+PROMPT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs", "prompts")
 
 # ===========================================
 # 分页配置
