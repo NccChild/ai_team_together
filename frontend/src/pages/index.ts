@@ -6,6 +6,7 @@ export { default as Evaluations } from './Evaluations';
 export { default as Statistics } from './Statistics';
 export { default as WeeklyReports } from './WeeklyReports';
 export { default as Achievements } from './Achievements';
+export { default as MyEvaluations } from './MyEvaluations';
 export { default as Login } from './Login';
 export { default as Unauthorized } from './Unauthorized';
 

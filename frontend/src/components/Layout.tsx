@@ -55,12 +55,18 @@ const MainLayout: React.FC<MainLayoutProps> = () => {
     return roleMap[role || 'member'] || '成员';
   };
 
+  const isAdmin = user?.role === 'admin';
+
   const allMenuItems = [
     { key: '/dashboard', icon: <DashboardOutlined />, label: '个人工作台' },
     { key: '/tasks', icon: <ProjectOutlined />, label: '任务中心' },
     { key: '/members', icon: <TeamOutlined />, label: '团队管理', adminOnly: true },
     { key: '/weeks', icon: <CalendarOutlined />, label: '周计划' },
-    { key: '/evaluations', icon: <StarOutlined />, label: '周评价' },
+    {
+      key: isAdmin ? '/evaluations' : '/my-evaluations',
+      icon: <StarOutlined />,
+      label: isAdmin ? '周评价' : '我的评价',
+    },
     { key: '/statistics', icon: <BarChartOutlined />, label: '统计分析' },
     { key: '/weekly-reports', icon: <FileTextOutlined />, label: '周报管理' },
     { key: '/achievements', icon: <TrophyOutlined />, label: '成果库' },

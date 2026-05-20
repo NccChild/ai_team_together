@@ -11,7 +11,9 @@ from backend.schemas import (
 )
 from backend.utils.response import success_response, success_list_response
 from backend.utils.exceptions import ResourceNotFoundException, ValidationException
-from backend.models import Evaluation, Task, Achievement
+from backend.models import Evaluation, Task, Member, Achievement
+from backend.utils.security import get_current_user
+from backend.schemas import TokenData
 from backend.config import DEFAULT_PAGE_SIZE, EVALUATION_SCORES
 from backend.services.llm_service import LLMService
 
@@ -22,25 +24,40 @@ def get_evaluations(
     task_id: Optional[int] = Query(None, description="任务ID筛选"),
     member_id: Optional[int] = Query(None, description="被评价成员筛选"),
     level: Optional[str] = Query(None, description="评价等级筛选"),
+    week_id: Optional[int] = Query(None, description="周次ID筛选"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=100, description="每页记录数"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: TokenData = Depends(get_current_user)
 ):
-    """获取评价列表"""
-    query = db.query(Evaluation)
+    """获取评价列表（成员只能查看自己的评价）"""
+    query = db.query(Evaluation).join(Task, Evaluation.task_id == Task.id)
+
+    # 权限控制：成员强制只看自己的评价
+    if current_user.role != "admin":
+        query = query.filter(Evaluation.member_id == current_user.user_id)
+    elif member_id:
+        query = query.filter(Evaluation.member_id == member_id)
 
     if task_id:
         query = query.filter(Evaluation.task_id == task_id)
-    if member_id:
-        query = query.filter(Evaluation.member_id == member_id)
     if level:
         query = query.filter(Evaluation.level == level)
+    if week_id:
+        query = query.filter(Task.week_id == week_id)
 
     query = query.order_by(Evaluation.evaluated_at.desc())
 
     total = query.count()
     offset = (page - 1) * page_size
     evaluations = query.offset(offset).limit(page_size).all()
+
+    # 批量查询评价人姓名
+    evaluator_ids = list(set(e.evaluator_id for e in evaluations))
+    evaluators = {}
+    if evaluator_ids:
+        members = db.query(Member).filter(Member.id.in_(evaluator_ids)).all()
+        evaluators = {m.id: m.name for m in members}
 
     items = []
     for e in evaluations:
@@ -54,6 +71,7 @@ def get_evaluations(
             "bonus_score": e.bonus_score,
             "final_score": e.final_score,
             "evaluator_id": e.evaluator_id,
+            "evaluator_name": evaluators.get(e.evaluator_id),
             "member_id": e.member_id,
             "member_name": e.member.name if e.member else None,
             "evaluated_at": e.evaluated_at

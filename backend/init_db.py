@@ -3,15 +3,17 @@
 创建示例数据用于测试
 """
 
-from sqlalchemy.orm import Session
-from backend.database import engine, SessionLocal, Base
-from backend.models import Member, Week, Task, Delivery, Evaluation
-from datetime import date, timedelta
 import sys
 import os
 
 # 添加项目根目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from sqlalchemy.orm import Session
+from backend.database import engine, SessionLocal, Base
+from backend.models import Member, Week, Task, Delivery, Evaluation
+from backend.utils.security import get_password_hash
+from datetime import date, timedelta
 
 
 def init_database():
@@ -29,9 +31,14 @@ def init_database():
             return
 
         # 创建示例成员
+        default_password = get_password_hash("123456")
+
         members = [
             Member(
                 name="张三",
+                username="zhangsan",
+                password_hash=default_password,
+                role="member",
                 unit="研发部",
                 contact="13800138001",
                 email="zhangsan@example.com",
@@ -41,6 +48,9 @@ def init_database():
             ),
             Member(
                 name="李四",
+                username="lisi",
+                password_hash=default_password,
+                role="member",
                 unit="研发部",
                 contact="13800138002",
                 email="lisi@example.com",
@@ -50,6 +60,9 @@ def init_database():
             ),
             Member(
                 name="王五",
+                username="wangwu",
+                password_hash=default_password,
+                role="member",
                 unit="产品部",
                 contact="13800138003",
                 email="wangwu@example.com",
@@ -59,6 +72,9 @@ def init_database():
             ),
             Member(
                 name="赵六",
+                username="zhaoliu",
+                password_hash=default_password,
+                role="member",
                 unit="测试部",
                 contact="13800138004",
                 email="zhaoliu@example.com",
@@ -68,6 +84,9 @@ def init_database():
             ),
             Member(
                 name="钱七",
+                username="qianqi",
+                password_hash=default_password,
+                role="member",
                 unit="研发部",
                 contact="13800138005",
                 email="qianqi@example.com",
@@ -150,12 +169,13 @@ def init_database():
 
         print("\n数据库初始化完成！")
         print("-" * 50)
-        print("示例账号：")
-        print("  - 张三 (ID: 1, 研发部)")
-        print("  - 李四 (ID: 2, 研发部)")
-        print("  - 王五 (ID: 3, 产品部)")
-        print("  - 赵六 (ID: 4, 测试部)")
-        print("  - 钱七 (ID: 5, 研发部)")
+        print("示例账号（密码均为 123456）：")
+        print("  管理员 - 用户名: guanli, 密码: guanli666")
+        print("  - 张三 (username: zhangsan, 研发部)")
+        print("  - 李四 (username: lisi, 研发部)")
+        print("  - 王五 (username: wangwu, 产品部)")
+        print("  - 赵六 (username: zhaoliu, 测试部)")
+        print("  - 钱七 (username: qianqi, 研发部)")
         print(f"当前周次ID: {current_week.id}")
 
     except Exception as e:

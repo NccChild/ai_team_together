@@ -10,6 +10,7 @@ import {
   Tasks,
   Weeks,
   Evaluations,
+  MyEvaluations,
   Statistics,
   WeeklyReports,
   Achievements,
@@ -48,7 +49,8 @@ const App: React.FC = () => {
               <Route path="members" element={<Members />} />
               <Route path="tasks" element={<Tasks />} />
               <Route path="weeks" element={<Weeks />} />
-              <Route path="evaluations" element={<Evaluations />} />
+              <Route path="evaluations" element={<ProtectedRoute requiredRoles={['admin']}><Evaluations /></ProtectedRoute>} />
+              <Route path="my-evaluations" element={<MyEvaluations />} />
               <Route path="statistics" element={<Statistics />} />
               <Route path="weekly-reports" element={<WeeklyReports />} />
               <Route path="achievements" element={<Achievements />} />
