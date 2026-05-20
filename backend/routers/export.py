@@ -9,11 +9,15 @@ from typing import Optional
 import io
 from datetime import datetime
 from urllib.parse import quote
+from docx import Document
+from docx.shared import Pt, Inches, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from backend.database import get_db
 from backend.utils.response import success_response
 from backend.utils.exceptions import ResourceNotFoundException
-from backend.models import Task, Evaluation, Member, Week, Achievement
+from backend.models import Task, Evaluation, Member, Week, Achievement, WeeklyReport
 from backend.config import TASK_STATUS, TASK_TYPES, TASK_DIFFICULTY, EVALUATION_LEVELS
+from backend.services.llm_service import LLMService
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -202,13 +206,25 @@ def export_member_statistics(
 @router.get("/export/achievements", summary="导出成果清单")
 def export_achievements(
     week_id: Optional[int] = Query(None, description="周次ID"),
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
+    achievement_type: Optional[str] = Query(None, description="成果类型筛选"),
+    member_id: Optional[int] = Query(None, description="提交人筛选"),
+    is_excellent: Optional[bool] = Query(None, description="优秀成果筛选"),
     db: Session = Depends(get_db)
 ):
-    """导出成果清单（从成果库读取）"""
+    """导出成果清单（从成果库读取，支持当前筛选条件）"""
     query = db.query(Achievement)
 
     if week_id:
         query = query.filter(Achievement.week_id == week_id)
+    if keyword:
+        query = query.filter(Achievement.name.like(f"%{keyword}%"))
+    if achievement_type:
+        query = query.filter(Achievement.achievement_type == achievement_type)
+    if member_id:
+        query = query.filter(Achievement.member_id == member_id)
+    if is_excellent is not None:
+        query = query.filter(Achievement.is_excellent == is_excellent)
 
     achievements = query.order_by(Achievement.created_at.desc()).all()
 
@@ -235,3 +251,129 @@ def export_achievements(
 
     filename = f"成果清单_{datetime.now().strftime('%Y%m%d')}.xlsx"
     return create_excel_response(filename, wb)
+
+
+@router.get("/export/weekly-report-word", summary="导出专班周报 Word")
+def export_weekly_report_word(
+    week_id: int = Query(..., description="周次ID"),
+    db: Session = Depends(get_db)
+):
+    """导出专班周报 Word 文档"""
+    week = db.query(Week).filter(Week.id == week_id).first()
+    if not week:
+        raise ResourceNotFoundException("周次", week_id)
+
+    reports = db.query(WeeklyReport).filter(WeeklyReport.week_id == week_id).all()
+
+    items = []
+    for r in reports:
+        item = {
+            "member_name": r.member.name if r.member else None,
+            "work_content": r.work_content,
+            "main_results": r.main_results,
+            "problems": r.problems,
+            "next_week_plan": r.next_week_plan,
+        }
+        if r.analysis:
+            item["analysis"] = {
+                "contribution_summary": r.analysis.contribution_summary,
+                "risk_alerts": r.analysis.risk_alerts,
+            }
+        items.append(item)
+
+    # 调用大模型生成专班周报草稿
+    llm_service = LLMService()
+    summary = llm_service.generate_team_summary(items, week.name)
+
+    # 构建 Word 文档
+    doc = Document()
+
+    style = doc.styles["Normal"]
+    style.font.name = "SimSun"
+    style.font.size = Pt(11)
+    style.paragraph_format.line_spacing = 1.5
+
+    # 标题
+    title = doc.add_heading(f"专班周报 — {week.name}", level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # 日期
+    date_para = doc.add_paragraph()
+    date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = date_para.add_run(f"生成日期：{datetime.now().strftime('%Y-%m-%d')}")
+    run.font.size = Pt(10)
+    run.font.color.rgb = RGBColor(128, 128, 128)
+
+    doc.add_paragraph()  # 空行
+
+    # AI 生成摘要
+    if summary.get("summary_text"):
+        doc.add_heading("一、本周总体情况", level=1)
+        for line in summary["summary_text"].strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("**") and line.endswith("**"):
+                doc.add_heading(line.strip("**"), level=2)
+            elif line.startswith("#"):
+                doc.add_heading(line.lstrip("#").strip(), level=2)
+            else:
+                doc.add_paragraph(line)
+
+        doc.add_paragraph()
+
+    # 成员详情
+    doc.add_heading("二、成员周报详情", level=1)
+    for i, item in enumerate(items, 1):
+        doc.add_heading(f"{i}. {item['member_name'] or '未知'}", level=2)
+
+        if item.get("work_content"):
+            p = doc.add_paragraph()
+            run = p.add_run("本周工作：")
+            run.bold = True
+            p.add_run(item["work_content"])
+
+        if item.get("main_results"):
+            p = doc.add_paragraph()
+            run = p.add_run("主要成果：")
+            run.bold = True
+            p.add_run(item["main_results"])
+
+        if item.get("problems"):
+            p = doc.add_paragraph()
+            run = p.add_run("存在问题：")
+            run.bold = True
+            p.add_run(item["problems"])
+
+        if item.get("next_week_plan"):
+            p = doc.add_paragraph()
+            run = p.add_run("下周计划：")
+            run.bold = True
+            p.add_run(item["next_week_plan"])
+
+        analysis = item.get("analysis") or {}
+        if analysis.get("contribution_summary"):
+            p = doc.add_paragraph()
+            run = p.add_run("贡献摘要：")
+            run.bold = True
+            p.add_run(analysis["contribution_summary"])
+
+        if analysis.get("risk_alerts"):
+            p = doc.add_paragraph()
+            run = p.add_run("风险提示：")
+            run.bold = True
+            for alert in analysis["risk_alerts"]:
+                doc.add_paragraph(alert, style="List Bullet")
+
+        doc.add_paragraph()  # 成员间分隔
+
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
+
+    filename = quote(f"专班周报_{week.name}_{datetime.now().strftime('%Y%m%d')}.docx")
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    )

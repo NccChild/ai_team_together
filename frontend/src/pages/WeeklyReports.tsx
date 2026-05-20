@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Form, Input, Button, Table, Tag, Modal, message, Select, Space, Divider, Tooltip, Typography } from 'antd';
 import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
-import { weeklyReportApi, memberApi, weekApi } from '../api';
+import { weeklyReportApi, memberApi, weekApi, exportApi } from '../api';
 import type { WeeklyReport, Member, Week } from '../types';
 
 const { TextArea } = Input;
@@ -29,7 +29,7 @@ const WeeklyReports: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [summaryVisible, setSummaryVisible] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryData, setSummaryData] = useState<{ week_name: string; items: any[]; summary_text?: string; summary_generated?: boolean } | null>(null);
+  const [summaryData, setSummaryData] = useState<{ week_id?: number; week_name: string; items: any[]; summary_text?: string; summary_generated?: boolean } | null>(null);
   const [form] = Form.useForm();
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
 
@@ -572,6 +572,16 @@ const WeeklyReports: React.FC = () => {
         footer={[
           <Button key="close" onClick={() => setSummaryVisible(false)} className="rounded-full">
             关闭
+          </Button>,
+          <Button
+            key="export"
+            icon={<FileTextOutlined />}
+            type="primary"
+            onClick={() => summaryData?.week_id && exportApi.exportWeeklyReportWord(summaryData.week_id)}
+            className="rounded-full"
+            style={{ backgroundColor: colors.primary }}
+          >
+            导出Word
           </Button>,
         ]}
         width={900}

@@ -4,9 +4,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Row, Col, Input, Select, Table, Tag, Button, Space, message, Modal, Form, Tooltip } from 'antd';
-import { PlusOutlined, SearchOutlined, TrophyOutlined, FileTextOutlined, LinkOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, TrophyOutlined, FileTextOutlined, LinkOutlined, DownloadOutlined } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
-import { achievementApi, memberApi, weekApi, dictionaryApi } from '../api';
+import { achievementApi, memberApi, weekApi, dictionaryApi, exportApi } from '../api';
 import type { Achievement, AchievementCreate, Member, Week, Dictionaries } from '../types';
 
 // 森林绿主题色
@@ -377,6 +377,21 @@ const Achievements: React.FC = () => {
               style={{ backgroundColor: colors.primary }}
             >
               搜索
+            </Button>
+          </Col>
+          <Col>
+            <Button
+              icon={<DownloadOutlined />}
+              onClick={() => exportApi.exportAchievements({
+                week_id: filters.week_id,
+                keyword: filters.keyword || undefined,
+                achievement_type: filters.achievement_type,
+                member_id: filters.member_id,
+                is_excellent: filters.is_excellent,
+              })}
+              className="rounded-full"
+            >
+              导出Excel
             </Button>
           </Col>
         </Row>
