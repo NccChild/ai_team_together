@@ -219,8 +219,11 @@ def get_team_summary(
     db: Session = Depends(get_db)
 ):
     """获取专班周报汇总，用于生成专班周报草稿"""
-    # 获取当前周
-    if not week_id:
+    # 获取周次
+    week = None
+    if week_id:
+        week = db.query(Week).filter(Week.id == week_id).first()
+    else:
         from backend.utils.datetime_utils import get_current_week
         start, end = get_current_week()
         week = db.query(Week).filter(
@@ -230,7 +233,7 @@ def get_team_summary(
         week_id = week.id if week else None
 
     if not week_id:
-        return success_response({"items": [], "total": 0})
+        return success_response({"week_name": None, "items": [], "total": 0})
 
     reports = db.query(WeeklyReport).filter(
         WeeklyReport.week_id == week_id
