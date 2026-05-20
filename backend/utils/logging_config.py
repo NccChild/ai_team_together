@@ -64,6 +64,8 @@ def setup_logging():
     console_handler.addFilter(RequestIDFilter())
     root_logger.addHandler(console_handler)
 
-    # 关闭第三方库的调试日志（如 urllib3）
+    # 关闭第三方库的调试日志
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("watchfiles").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn").setLevel(logging.WARNING)
