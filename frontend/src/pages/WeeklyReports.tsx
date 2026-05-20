@@ -3,8 +3,8 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Form, Input, Button, Table, Tag, Modal, message, Select, Space, Divider } from 'antd';
-import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Form, Input, Button, Table, Tag, Modal, message, Select, Space, Divider, Tooltip, Typography } from 'antd';
+import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, TeamOutlined } from '@ant-design/icons';
 import { weeklyReportApi, memberApi, weekApi } from '../api';
 import type { WeeklyReport, Member, Week } from '../types';
 
@@ -27,6 +27,9 @@ const WeeklyReports: React.FC = () => {
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedReport, setSelectedReport] = useState<WeeklyReport | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [summaryVisible, setSummaryVisible] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryData, setSummaryData] = useState<{ week_name: string; items: any[] } | null>(null);
   const [form] = Form.useForm();
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
 
@@ -109,6 +112,23 @@ const WeeklyReports: React.FC = () => {
       } finally {
         setAnalyzing(false);
       }
+    }
+  };
+
+  const handleTeamSummary = async () => {
+    if (!selectedWeekId) {
+      message.warning('请先选择周次');
+      return;
+    }
+    setSummaryLoading(true);
+    try {
+      const result = await weeklyReportApi.getSummary(selectedWeekId);
+      setSummaryData(result);
+      setSummaryVisible(true);
+    } catch (error) {
+      message.error('加载专班汇总失败');
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -269,22 +289,33 @@ const WeeklyReports: React.FC = () => {
 
       {/* 筛选器 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
-        <Form form={form} layout="inline">
-          <Form.Item name="week_id" className="mb-0">
-            <Select
-              placeholder="选择周次"
-              value={selectedWeekId}
-              onChange={handleWeekChange}
-              style={{ width: 200 }}
-            >
-              {weeks.map((week) => (
-                <Select.Option key={week.id} value={week.id}>
-                  {week.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
+        <div className="flex items-center justify-between">
+          <Form form={form} layout="inline">
+            <Form.Item name="week_id" className="mb-0">
+              <Select
+                placeholder="选择周次"
+                value={selectedWeekId}
+                onChange={handleWeekChange}
+                style={{ width: 200 }}
+              >
+                {weeks.map((week) => (
+                  <Select.Option key={week.id} value={week.id}>
+                    {week.name}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+          <Button
+            icon={<TeamOutlined />}
+            loading={summaryLoading}
+            onClick={handleTeamSummary}
+            className="rounded-full"
+            style={{ borderColor: colors.primary, color: colors.primary }}
+          >
+            生成专班周报
+          </Button>
+        </div>
       </div>
 
       {/* 周报列表 */}
@@ -369,6 +400,9 @@ const WeeklyReports: React.FC = () => {
           </Form.Item>
           <Form.Item name="next_week_plan" label="下周计划">
             <TextArea rows={2} placeholder="请列出下周的工作计划" className="rounded-lg" />
+          </Form.Item>
+          <Form.Item name="raw_text" label="原始文本" rules={[{ required: true, message: '请粘贴周报原始文本' }]}>
+            <TextArea rows={4} placeholder="请粘贴完整的周报原始文本（包含以上所有内容）" className="rounded-lg" />
           </Form.Item>
         </Form>
       </Modal>

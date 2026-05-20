@@ -233,8 +233,8 @@ def get_team_summary(
         if week:
             week_id = week.id
 
-    if not week_id or not week:
-        return success_response({"items": [], "total": 0})
+    if not week_id:
+        return success_response({"week_name": None, "items": [], "total": 0})
 
     reports = db.query(WeeklyReport).filter(
         WeeklyReport.week_id == week_id
