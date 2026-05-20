@@ -105,6 +105,8 @@ export interface TaskFilter {
   difficulty?: string;
   status?: string;
   is_overdue?: boolean;
+  sort_by?: 'deadline' | 'status';
+  sort_order?: 'asc' | 'desc';
   page?: number;
   page_size?: number;
 }

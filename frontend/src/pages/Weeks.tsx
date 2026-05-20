@@ -3,12 +3,11 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Card, Tag, message, Row, Col, Modal, Form, Input, DatePicker, Statistic, Space, Badge, Dropdown } from 'antd';
+import { Table, Button, Tag, message, Row, Col, Modal, Form, DatePicker, Statistic, Space, Dropdown } from 'antd';
 import {
   PlusOutlined, DownloadOutlined, CalendarOutlined, CheckCircleOutlined,
   WarningOutlined, TrophyOutlined, DownOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { weekApi, exportApi } from '../api';
 import type { Week, Task, WeekSummary } from '../types';
@@ -20,17 +19,14 @@ dayjs.extend(isoWeek);
 const Weeks: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  const navigate = useNavigate();
   const [weeks, setWeeks] = useState<Week[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedWeek, setSelectedWeek] = useState<Week | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [summary, setSummary] = useState<WeekSummary | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
   const [batchModalVisible, setBatchModalVisible] = useState(false);
   const [batchForm] = Form.useForm();
   const [generating, setGenerating] = useState(false);
-  const [form] = Form.useForm();
 
   useEffect(() => {
     loadWeeks();
@@ -85,23 +81,6 @@ const Weeks: React.FC = () => {
       setSummary(summaryData);
     } catch (error: any) {
       message.error('加载任务失败: ' + (error.message || '未知错误'));
-    }
-  };
-
-  const handleCreate = async () => {
-    try {
-      const values = await form.validateFields();
-      await weekApi.create({
-        ...values,
-        start_date: values.dateRange[0].format('YYYY-MM-DD'),
-        end_date: values.dateRange[1].format('YYYY-MM-DD'),
-      } as any);
-      message.success('周次创建成功');
-      setModalVisible(false);
-      form.resetFields();
-      loadWeeks();
-    } catch (error) {
-      message.error('创建失败');
     }
   };
 
@@ -181,7 +160,7 @@ const Weeks: React.FC = () => {
     const configs: Record<string, any> = {
       not_started: { color: 'bg-gray-100 text-gray-600', label: '未开始' },
       in_progress: { color: 'bg-blue-100 text-blue-600', label: '进行中' },
-      submitted: { color: 'bg-orange-100 text-orange-600', label: '待评价' },
+      submitted: { color: 'bg-orange-100 text-orange-600', label: '已提交' },
       need_revision: { color: 'bg-red-100 text-red-600', label: '需修改' },
       completed: { color: 'bg-green-100 text-green-600', label: '已完成' },
     };
@@ -389,36 +368,6 @@ const Weeks: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* 创建单周次弹窗 */}
-      <Modal
-        title="创建周次"
-        open={modalVisible}
-        onOk={handleCreate}
-        onCancel={() => { setModalVisible(false); form.resetFields(); }}
-        okText="确认"
-        cancelText="取消"
-      >
-        <Form form={form} layout="vertical" className="mt-4">
-          <Form.Item
-            name="name"
-            label="周次名称"
-            rules={[{ required: true, message: '请输入周次名称' }]}
-          >
-            <Input placeholder="例如: 2026年第20周" />
-          </Form.Item>
-          <Form.Item
-            name="dateRange"
-            label="周时间范围"
-            rules={[{ required: true, message: '请选择周时间范围' }]}
-          >
-            <DatePicker.RangePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="remark" label="备注">
-            <Input.TextArea rows={2} placeholder="备注信息" />
-          </Form.Item>
-        </Form>
-      </Modal>
 
       {/* 批量生成弹窗 */}
       <Modal

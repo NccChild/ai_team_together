@@ -9,14 +9,13 @@ import {
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, EyeOutlined,
-  CheckCircleOutlined, UploadOutlined, FilterOutlined, AppstoreOutlined, UnorderedListOutlined
+  CheckCircleOutlined, UploadOutlined, FilterOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { taskApi, memberApi, weekApi, dictionaryApi } from '../api';
 import type { Task, TaskCreate, Member, Week, Dictionaries, DeliveryCreate } from '../types';
 import dayjs, { Dayjs } from 'dayjs';
 
-import locale from 'antd/es/date-picker/locale/zh_CN';
 import 'dayjs/locale/zh-cn';
 
 dayjs.locale('zh-cn');
@@ -28,6 +27,11 @@ const Tasks: React.FC = () => {
   const [data, setData] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [newTaskCount, setNewTaskCount] = useState(0);
+  const [sorter, setSorter] = useState<{
+    sort_by?: 'deadline' | 'status';
+    sort_order?: 'asc' | 'desc';
+  }>({});
   const [filters, setFilters] = useState<{
     keyword?: string;
     week_id?: number;
@@ -45,7 +49,6 @@ const Tasks: React.FC = () => {
   const [dictionaries, setDictionaries] = useState<Dictionaries | null>(null);
   const [form] = Form.useForm();
   const [deliveryForm] = Form.useForm();
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [selectedWeekInfo, setSelectedWeekInfo] = useState<Week | null>(null);
 
   useEffect(() => {
@@ -68,21 +71,49 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (options?: {
+    filters?: typeof filters;
+    current?: number;
+    pageSize?: number;
+    sorter?: typeof sorter;
+  }) => {
     setLoading(true);
     try {
+      const effectiveFilters = options?.filters ?? filters;
+      const effectiveCurrent = options?.current ?? pagination.current;
+      const effectivePageSize = options?.pageSize ?? pagination.pageSize;
+      const effectiveSorter = options?.sorter ?? sorter;
       const params: any = {
-        ...filters,
-        page: pagination.current,
-        page_size: pagination.pageSize,
+        ...effectiveFilters,
+        ...effectiveSorter,
+        page: effectiveCurrent,
+        page_size: effectivePageSize,
       };
       // 成员只能看自己的任务
       if (!isAdmin && user?.id) {
         params.assignee_id = user.id;
       }
-      const result = await taskApi.getList(params);
+      const newTaskParams: any = {
+        ...effectiveFilters,
+        status: 'not_started',
+        page: 1,
+        page_size: 1,
+      };
+      if (!isAdmin && user?.id) {
+        newTaskParams.assignee_id = user.id;
+      }
+      const [result, newTaskResult] = await Promise.all([
+        taskApi.getList(params),
+        taskApi.getList(newTaskParams),
+      ]);
       setData(result.items);
-      setPagination((prev) => ({ ...prev, total: result.total }));
+      setNewTaskCount(newTaskResult.total);
+      setPagination((prev) => ({
+        ...prev,
+        current: effectiveCurrent,
+        pageSize: effectivePageSize,
+        total: result.total,
+      }));
     } catch (error) {
       message.error('加载数据失败');
     } finally {
@@ -91,17 +122,23 @@ const Tasks: React.FC = () => {
   };
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, current: 1 }));
-    loadData();
+    loadData({ filters, current: 1 });
   };
 
-  const handleTableChange = (paginationConfig: any) => {
-    setPagination((prev) => ({
-      ...prev,
+  const handleTableChange = (paginationConfig: any, _filters: any, sorterConfig: any) => {
+    const nextSorter =
+      sorterConfig?.order && ['deadline', 'status'].includes(sorterConfig.columnKey)
+        ? {
+            sort_by: sorterConfig.columnKey as 'deadline' | 'status',
+            sort_order: sorterConfig.order === 'descend' ? 'desc' as const : 'asc' as const,
+          }
+        : {};
+    setSorter(nextSorter);
+    loadData({
       current: paginationConfig.current,
       pageSize: paginationConfig.pageSize,
-    }));
-    loadData();
+      sorter: nextSorter,
+    });
   };
 
   const handleAdd = () => {
@@ -175,6 +212,7 @@ const Tasks: React.FC = () => {
     const sortedWeeks = [...weeks].sort((a, b) =>
       dayjs(a.start_date).valueOf() - dayjs(b.start_date).valueOf()
     );
+    let selectableWeeks: Week[];
     
     // 2. 找到状态为 'current' 的当前周
     const currentWeekIndex = sortedWeeks.findIndex((w) => w.status === 'current');
@@ -190,14 +228,27 @@ const Tasks: React.FC = () => {
       
       // 如果按时间匹配到了，返回该周及后续3周
       if (matchedIndex !== -1) {
-        return sortedWeeks.slice(matchedIndex, matchedIndex + 4);
+        selectableWeeks = sortedWeeks.slice(matchedIndex, matchedIndex + 4);
+      } else {
+        selectableWeeks = sortedWeeks.slice(-4);
       }
       // 实在找不到，就默认返回最后4个周次
-      return sortedWeeks.slice(-4);
+    } else {
+      // 4. 正常匹配到 'current'，返回当前周加上后面的3周（共4周）
+      selectableWeeks = sortedWeeks.slice(currentWeekIndex, currentWeekIndex + 4);
     }
-    
-    // 4. 正常匹配到 'current'，返回当前周加上后面的3周（共4周）
-    return sortedWeeks.slice(currentWeekIndex, currentWeekIndex + 4);
+
+    if (editingId) {
+      const editingWeekId = form.getFieldValue('week_id');
+      const editingWeek = sortedWeeks.find((w) => w.id === editingWeekId);
+      if (editingWeek && !selectableWeeks.some((w) => w.id === editingWeek.id)) {
+        selectableWeeks = [...selectableWeeks, editingWeek].sort((a, b) =>
+          dayjs(a.start_date).valueOf() - dayjs(b.start_date).valueOf()
+        );
+      }
+    }
+
+    return selectableWeeks;
   };
 
   // 格式化周次显示（周次名称 + 起止日期）
@@ -319,6 +370,11 @@ const Tasks: React.FC = () => {
     return configs[type] || { color: 'bg-gray-100 text-gray-600', label: type };
   };
 
+  const getSortOrder = (field: 'deadline' | 'status') => {
+    if (sorter.sort_by !== field) return null;
+    return sorter.sort_order === 'desc' ? 'descend' as const : 'ascend' as const;
+  };
+
   const columns = [
     {
       title: '任务名称',
@@ -346,6 +402,8 @@ const Tasks: React.FC = () => {
       dataIndex: 'deadline',
       key: 'deadline',
       width: 120,
+      sorter: true,
+      sortOrder: getSortOrder('deadline'),
       render: (date: string, record: Task) => (
         <div className={record.is_overdue ? 'text-red-500' : 'text-gray-600'}>
           {date?.split('T')[0]}
@@ -355,8 +413,11 @@ const Tasks: React.FC = () => {
     },
     {
       title: '状态',
+      dataIndex: 'status',
       key: 'status',
       width: 100,
+      sorter: true,
+      sortOrder: getSortOrder('status'),
       render: (_: any, record: Task) => {
         const config = getStatusConfig(record.status, record.is_overdue, record);
         return (
@@ -492,9 +553,13 @@ const Tasks: React.FC = () => {
           <Button icon={<FilterOutlined />} onClick={handleSearch}>筛选</Button>
           <div className="flex-1" />
           <Space>
-            <Badge count={pagination.total} showZero color="#006D4E">
+            {newTaskCount > 0 ? (
+              <Badge count={newTaskCount} color="#006D4E">
+                <span className="text-gray-500 text-sm">共 {pagination.total} 个任务</span>
+              </Badge>
+            ) : (
               <span className="text-gray-500 text-sm">共 {pagination.total} 个任务</span>
-            </Badge>
+            )}
           </Space>
         </div>
       </div>

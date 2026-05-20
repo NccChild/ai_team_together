@@ -3,6 +3,7 @@
 """
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import case
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from backend.database import get_db
@@ -39,6 +40,8 @@ def get_tasks(
     is_overdue: Optional[bool] = Query(None, description="是否延期筛选"),
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=100, description="每页记录数"),
+    sort_by: Optional[str] = Query(None, description="排序字段: deadline/status"),
+    sort_order: Optional[str] = Query("asc", description="排序方向: asc/desc"),
     db: Session = Depends(get_db)
 ):
     """获取任务列表，支持多条件筛选和分页"""
@@ -59,7 +62,21 @@ def get_tasks(
     if is_overdue is not None:
         query = query.filter(Task.is_overdue == is_overdue)
 
-    query = query.order_by(Task.created_at.desc())
+    sort_order = sort_order if sort_order in ["asc", "desc"] else "asc"
+    if sort_by == "deadline":
+        query = query.order_by(Task.deadline.desc() if sort_order == "desc" else Task.deadline.asc())
+    elif sort_by == "status":
+        status_order = case(
+            (Task.status == "not_started", 1),
+            (Task.status == "in_progress", 2),
+            (Task.status == "submitted", 3),
+            (Task.status == "need_revision", 4),
+            (Task.status == "completed", 5),
+            else_=6
+        )
+        query = query.order_by(status_order.desc() if sort_order == "desc" else status_order.asc())
+    else:
+        query = query.order_by(Task.created_at.desc())
 
     total = query.count()
     offset = (page - 1) * page_size
