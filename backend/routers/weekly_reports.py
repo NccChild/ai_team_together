@@ -142,11 +142,18 @@ def get_team_summary(
 
         items.append(item)
 
+    # 调用大模型生成专班周报草稿
+    week_name = week.name if week else None
+    llm_service = LLMService()
+    summary = llm_service.generate_team_summary(items, week_name)
+
     return success_response({
         "week_id": week_id,
-        "week_name": week.name if week else None,
+        "week_name": week_name,
         "items": items,
-        "total": len(items)
+        "total": len(items),
+        "summary_text": summary.get("summary_text", ""),
+        "summary_generated": summary.get("generated", False)
     })
 
 

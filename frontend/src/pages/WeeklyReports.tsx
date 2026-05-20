@@ -29,7 +29,7 @@ const WeeklyReports: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [summaryVisible, setSummaryVisible] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryData, setSummaryData] = useState<{ week_name: string; items: any[] } | null>(null);
+  const [summaryData, setSummaryData] = useState<{ week_name: string; items: any[]; summary_text?: string; summary_generated?: boolean } | null>(null);
   const [form] = Form.useForm();
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
 
@@ -579,6 +579,22 @@ const WeeklyReports: React.FC = () => {
       >
         {summaryData?.items?.length > 0 ? (
           <div className="mt-4 space-y-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            {/* AI 生成的专班周报草稿 */}
+            {summaryData.summary_text && (
+              <div className="border border-emerald-200 bg-emerald-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center mb-3">
+                  <RocketOutlined className="mr-2" style={{ color: colors.primary }} />
+                  <span className="font-semibold text-gray-800">专班周报草稿（AI 生成）</span>
+                  {summaryData.summary_generated && (
+                    <Tag className="ml-2" style={{ backgroundColor: '#f6ffed', borderColor: '#b7eb8f', color: '#52c41a', borderRadius: '10px', fontSize: '11px' }}>DeepSeek</Tag>
+                  )}
+                </div>
+                <div className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                  {summaryData.summary_text}
+                </div>
+              </div>
+            )}
+
             {summaryData.items.map((item: any) => (
               <div key={item.report_id} className="border border-gray-200 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
