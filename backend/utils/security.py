@@ -5,6 +5,7 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
+from fastapi import Header, HTTPException
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from pydantic import ValidationError
@@ -66,6 +67,25 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> TokenData:
+    """
+    从请求头获取当前登录用户（FastAPI 依赖注入）
+    """
+    if not authorization:
+        raise HTTPException(status_code=401, detail="未提供认证令牌")
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=401, detail="无效的认证方案")
+    except ValueError:
+        raise HTTPException(status_code=401, detail="无效的 Authorization header 格式")
+
+    token_data = verify_token(token)
+    if token_data is None:
+        raise HTTPException(status_code=401, detail="令牌无效或已过期")
+    return token_data
 
 
 def verify_token(token: str) -> Optional[TokenData]:  #接口鉴权用

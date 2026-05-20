@@ -4,7 +4,9 @@
 """
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))  # 自动把根目录加入路径
+
+# 添加项目根目录到路径（必须在 import backend 之前）
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy.orm import sessionmaker
 from backend.database import engine
@@ -57,12 +59,12 @@ def init_users():
             print(f"创建管理员: {user_data['username']} ({user_data['name']})")
 
         db.commit()
-        print("\n✅ 管理员初始化成功！")
+        print("\n[SUCCESS] 管理员初始化成功！")
         print(f"  用户名: {user_data['username']}, 密码: {user_data['password']}, 角色: {user_data['role']}")
 
     except Exception as e:
         db.rollback()
-        print(f"❌ 初始化失败: {str(e)}")
+        print(f"[ERROR] 初始化失败: {str(e)}")
         sys.exit(1)
     finally:
         db.close()

@@ -335,6 +335,10 @@ const Evaluations: React.FC = () => {
                 <div className="font-bold text-amber-500">{selectedEval.final_score}</div>
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
+                <div className="text-xs text-gray-400">评价人</div>
+                <div className="font-medium">{selectedEval.evaluator_name || '-'}</div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3">
                 <div className="text-xs text-gray-400">评价时间</div>
                 <div className="text-sm">{selectedEval.evaluated_at?.replace('T', ' ').split('.')[0]}</div>
               </div>

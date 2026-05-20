@@ -123,6 +123,7 @@ export const evaluationApi = {
     task_id?: number;
     member_id?: number;
     level?: string;
+    week_id?: number;
     page?: number;
     page_size?: number;
   }) => apiClient.get<PageResponse<Evaluation>>('/evaluations', params),
