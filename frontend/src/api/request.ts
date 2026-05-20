@@ -37,17 +37,40 @@ class ApiClient {
     this.client.interceptors.response.use(
       (response: AxiosResponse<ApiResponse>) => {
         const { data } = response;
+        const requestId = response.headers['x-request-id'] || '';
+        (window as any).__lastRequestId = requestId;
         if (data.code !== 200) {
-          console.error('API Error:', data.message);
-          return Promise.reject(new Error(data.message));
+          console.group(`[API Error] request_id=${requestId}`);
+          console.error('message:', data.message);
+          console.error('request_id:', requestId);
+          console.groupEnd();
+          const err = new Error(data.message);
+          (err as any).request_id = requestId;
+          return Promise.reject(err);
         }
         return response;
       },
       (error) => {
+        const requestId =
+          error?.response?.headers?.['x-request-id'] ||
+          error?.response?.data?.request_id ||
+          '';
+        (window as any).__lastRequestId = requestId;
         const message =
           error?.response?.data?.message || error?.message || '请求失败';
-        console.error('Request Error:', message, error);
-        return Promise.reject(new Error(message));
+
+        console.group(`[Request Error] request_id=${requestId}`);
+        console.error('message:', message);
+        console.error('status:', error?.response?.status);
+        console.error('request_id:', requestId);
+        if (error?.response?.data?.error) {
+          console.error('details:', error.response.data.error);
+        }
+        console.groupEnd();
+
+        const err = new Error(message);
+        (err as any).request_id = requestId;
+        return Promise.reject(err);
       }
     );
   }

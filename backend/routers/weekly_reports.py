@@ -230,7 +230,8 @@ def get_team_summary(
             Week.start_date <= start,
             Week.end_date >= end
         ).first()
-        week_id = week.id if week else None
+        if week:
+            week_id = week.id
 
     if not week_id:
         return success_response({"week_name": None, "items": [], "total": 0})
