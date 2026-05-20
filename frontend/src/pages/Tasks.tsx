@@ -5,16 +5,20 @@
 import React, { useEffect, useState } from 'react';
 import {
   Table, Button, Input, Modal, Form, Select, Tag, message, Popconfirm,
-  Drawer, Descriptions, Timeline, Space, Row, Col, Badge
+  Drawer, Descriptions, Timeline, Space, Row, Col, Badge, DatePicker
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, EyeOutlined,
-  CheckCircleOutlined, UploadOutlined, FilterOutlined, AppstoreOutlined, UnorderedListOutlined
+  CheckCircleOutlined, UploadOutlined, FilterOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import { taskApi, memberApi, weekApi, dictionaryApi } from '../api';
 import type { Task, TaskCreate, Member, Week, Dictionaries, DeliveryCreate } from '../types';
-import dayjs from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
+
+import 'dayjs/locale/zh-cn';
+
+dayjs.locale('zh-cn');
 
 const Tasks: React.FC = () => {
   const { user } = useAuth();
@@ -23,6 +27,11 @@ const Tasks: React.FC = () => {
   const [data, setData] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [newTaskCount, setNewTaskCount] = useState(0);
+  const [sorter, setSorter] = useState<{
+    sort_by?: 'deadline' | 'status';
+    sort_order?: 'asc' | 'desc';
+  }>({});
   const [filters, setFilters] = useState<{
     keyword?: string;
     week_id?: number;
@@ -40,7 +49,7 @@ const Tasks: React.FC = () => {
   const [dictionaries, setDictionaries] = useState<Dictionaries | null>(null);
   const [form] = Form.useForm();
   const [deliveryForm] = Form.useForm();
-  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
+  const [selectedWeekInfo, setSelectedWeekInfo] = useState<Week | null>(null);
 
   useEffect(() => {
     loadReferenceData();
@@ -62,21 +71,49 @@ const Tasks: React.FC = () => {
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (options?: {
+    filters?: typeof filters;
+    current?: number;
+    pageSize?: number;
+    sorter?: typeof sorter;
+  }) => {
     setLoading(true);
     try {
+      const effectiveFilters = options?.filters ?? filters;
+      const effectiveCurrent = options?.current ?? pagination.current;
+      const effectivePageSize = options?.pageSize ?? pagination.pageSize;
+      const effectiveSorter = options?.sorter ?? sorter;
       const params: any = {
-        ...filters,
-        page: pagination.current,
-        page_size: pagination.pageSize,
+        ...effectiveFilters,
+        ...effectiveSorter,
+        page: effectiveCurrent,
+        page_size: effectivePageSize,
       };
       // 成员只能看自己的任务
       if (!isAdmin && user?.id) {
         params.assignee_id = user.id;
       }
-      const result = await taskApi.getList(params);
+      const newTaskParams: any = {
+        ...effectiveFilters,
+        status: 'not_started',
+        page: 1,
+        page_size: 1,
+      };
+      if (!isAdmin && user?.id) {
+        newTaskParams.assignee_id = user.id;
+      }
+      const [result, newTaskResult] = await Promise.all([
+        taskApi.getList(params),
+        taskApi.getList(newTaskParams),
+      ]);
       setData(result.items);
-      setPagination((prev) => ({ ...prev, total: result.total }));
+      setNewTaskCount(newTaskResult.total);
+      setPagination((prev) => ({
+        ...prev,
+        current: effectiveCurrent,
+        pageSize: effectivePageSize,
+        total: result.total,
+      }));
     } catch (error) {
       message.error('加载数据失败');
     } finally {
@@ -85,31 +122,41 @@ const Tasks: React.FC = () => {
   };
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, current: 1 }));
-    loadData();
+    loadData({ filters, current: 1 });
   };
 
-  const handleTableChange = (paginationConfig: any) => {
-    setPagination((prev) => ({
-      ...prev,
+  const handleTableChange = (paginationConfig: any, _filters: any, sorterConfig: any) => {
+    const nextSorter =
+      sorterConfig?.order && ['deadline', 'status'].includes(sorterConfig.columnKey)
+        ? {
+            sort_by: sorterConfig.columnKey as 'deadline' | 'status',
+            sort_order: sorterConfig.order === 'descend' ? 'desc' as const : 'asc' as const,
+          }
+        : {};
+    setSorter(nextSorter);
+    loadData({
       current: paginationConfig.current,
       pageSize: paginationConfig.pageSize,
-    }));
-    loadData();
+      sorter: nextSorter,
+    });
   };
 
   const handleAdd = () => {
     setEditingId(null);
+    setSelectedWeekInfo(null);
     form.resetFields();
-    const currentWeekId = weeks.find((w) => w.status === 'current')?.id;
-    if (currentWeekId) {
-      form.setFieldValue('week_id', currentWeekId);
+    const currentWeek = weeks.find((w) => w.status === 'current');
+    if (currentWeek) {
+      form.setFieldValue('week_id', currentWeek.id);
+      setSelectedWeekInfo(currentWeek);
     }
     setModalVisible(true);
   };
 
   const handleEdit = (record: Task) => {
     setEditingId(record.id);
+    const weekInfo = weeks.find((w) => w.id === record.week_id) || null;
+    setSelectedWeekInfo(weekInfo);
     form.setFieldsValue({
       name: record.name,
       description: record.description,
@@ -122,6 +169,91 @@ const Tasks: React.FC = () => {
       delivery_requirement: record.delivery_requirement,
     });
     setModalVisible(true);
+  };
+
+  // 处理周次变更，约束截止时间
+  const handleWeekChange = (weekId: number | null) => {
+    if (!weekId) {
+      setSelectedWeekInfo(null);
+      form.setFieldValue('week_id', undefined);
+      return;
+    }
+    const week = weeks.find((w) => w.id === weekId);
+    if (week) {
+      // 检查当前截止时间是否在周次范围内
+      const currentDeadline = form.getFieldValue('deadline');
+      if (currentDeadline) {
+        const deadlineDate = dayjs(currentDeadline).startOf('day');
+        const weekStart = dayjs(week.start_date).startOf('day');
+        const weekEnd = dayjs(week.end_date).endOf('day');
+        if (deadlineDate.isBefore(weekStart) || deadlineDate.isAfter(weekEnd)) {
+          form.setFieldValue('deadline', null);
+          message.warning('当前截止时间不在所选周次范围内，已清空截止时间，请重新选择');
+        }
+      }
+      setSelectedWeekInfo(week);
+      form.setFieldValue('week_id', weekId);
+    }
+  };
+
+  // 获取截止时间的可选范围（只能在周次范围内）
+  const getDeadlineDisabledDate = (current: Dayjs) => {
+    if (!selectedWeekInfo) return false;
+    const weekStart = dayjs(selectedWeekInfo.start_date).startOf('day');
+    const weekEnd = dayjs(selectedWeekInfo.end_date).endOf('day');
+    // 截止时间只能在周次的开始和结束日期之间
+    if (current.isBefore(weekStart) || current.isAfter(weekEnd)) return true;
+    return false;
+  };
+
+  // 获取可选的周次列表（当前周 + 之后3周，按日期排序）
+  const getSelectableWeeks = () => {
+    // 1. 先按开始日期升序排列，确保时间轴是正序的
+    const sortedWeeks = [...weeks].sort((a, b) =>
+      dayjs(a.start_date).valueOf() - dayjs(b.start_date).valueOf()
+    );
+    let selectableWeeks: Week[];
+    
+    // 2. 找到状态为 'current' 的当前周
+    const currentWeekIndex = sortedWeeks.findIndex((w) => w.status === 'current');
+    
+    // 3. 兜底策略：如果因为后端数据没打 'current' 标签而找不到当前周，就按今天的时间去匹配
+    if (currentWeekIndex === -1) {
+      const today = dayjs();
+      const matchedIndex = sortedWeeks.findIndex((w) => {
+        const start = dayjs(w.start_date).startOf('day');
+        const end = dayjs(w.end_date).endOf('day');
+        return (today.isAfter(start) || today.isSame(start)) && (today.isBefore(end) || today.isSame(end));
+      });
+      
+      // 如果按时间匹配到了，返回该周及后续3周
+      if (matchedIndex !== -1) {
+        selectableWeeks = sortedWeeks.slice(matchedIndex, matchedIndex + 4);
+      } else {
+        selectableWeeks = sortedWeeks.slice(-4);
+      }
+      // 实在找不到，就默认返回最后4个周次
+    } else {
+      // 4. 正常匹配到 'current'，返回当前周加上后面的3周（共4周）
+      selectableWeeks = sortedWeeks.slice(currentWeekIndex, currentWeekIndex + 4);
+    }
+
+    if (editingId) {
+      const editingWeekId = form.getFieldValue('week_id');
+      const editingWeek = sortedWeeks.find((w) => w.id === editingWeekId);
+      if (editingWeek && !selectableWeeks.some((w) => w.id === editingWeek.id)) {
+        selectableWeeks = [...selectableWeeks, editingWeek].sort((a, b) =>
+          dayjs(a.start_date).valueOf() - dayjs(b.start_date).valueOf()
+        );
+      }
+    }
+
+    return selectableWeeks;
+  };
+
+  // 格式化周次显示（周次名称 + 起止日期）
+  const formatWeekOption = (week: Week) => {
+    return week.name;
   };
 
   const handleView = async (record: Task) => {
@@ -138,11 +270,13 @@ const Tasks: React.FC = () => {
     try {
       const values = await form.validateFields();
       // 处理 deadline，可能是 dayjs 对象或字符串
-      let deadlineStr = values.deadline;
-      if (typeof deadlineStr === 'object' && deadlineStr.format) {
-        deadlineStr = deadlineStr.format('YYYY-MM-DD');
-      } else if (typeof deadlineStr === 'string' && deadlineStr.includes('T')) {
-        deadlineStr = deadlineStr.split('T')[0];
+      let deadlineStr: string | undefined;
+      if (values.deadline) {
+        if (dayjs.isDayjs(values.deadline)) {
+          deadlineStr = values.deadline.format('YYYY-MM-DD');
+        } else if (typeof values.deadline === 'string') {
+          deadlineStr = values.deadline.includes('T') ? values.deadline.split('T')[0] : values.deadline;
+        }
       }
       const data: TaskCreate = {
         ...values,
@@ -156,6 +290,7 @@ const Tasks: React.FC = () => {
         message.success('创建成功');
       }
       setModalVisible(false);
+      setSelectedWeekInfo(null);
       loadData();
     } catch (error) {
       message.error('操作失败');
@@ -196,16 +331,17 @@ const Tasks: React.FC = () => {
       deliveryForm.resetFields();
       const detail = await taskApi.getById(selectedTask.id);
       setSelectedTask(detail);
+      loadData(); // 刷新主列表，使状态同步更新
     } catch (error) {
       message.error('提交失败');
     }
   };
 
-  const getStatusConfig = (status: string, isOverdue: boolean) => {
+  const getStatusConfig = (status: string, isOverdue: boolean, record?: Task) => {
     const configs: Record<string, any> = {
       not_started: { color: 'bg-gray-100 text-gray-600', label: '未开始' },
       in_progress: { color: 'bg-blue-100 text-blue-600', label: '进行中' },
-      submitted: { color: 'bg-orange-100 text-orange-600', label: '待评价' },
+      submitted: { color: 'bg-orange-100 text-orange-600', label: '已提交' },
       need_revision: { color: 'bg-red-100 text-red-600', label: '需修改' },
       completed: { color: 'bg-green-100 text-green-600', label: '已完成' },
     };
@@ -232,6 +368,11 @@ const Tasks: React.FC = () => {
       temp_task: { color: 'bg-gray-100 text-gray-600', label: '临时协同' },
     };
     return configs[type] || { color: 'bg-gray-100 text-gray-600', label: type };
+  };
+
+  const getSortOrder = (field: 'deadline' | 'status') => {
+    if (sorter.sort_by !== field) return null;
+    return sorter.sort_order === 'desc' ? 'descend' as const : 'ascend' as const;
   };
 
   const columns = [
@@ -261,6 +402,8 @@ const Tasks: React.FC = () => {
       dataIndex: 'deadline',
       key: 'deadline',
       width: 120,
+      sorter: true,
+      sortOrder: getSortOrder('deadline'),
       render: (date: string, record: Task) => (
         <div className={record.is_overdue ? 'text-red-500' : 'text-gray-600'}>
           {date?.split('T')[0]}
@@ -270,10 +413,13 @@ const Tasks: React.FC = () => {
     },
     {
       title: '状态',
+      dataIndex: 'status',
       key: 'status',
       width: 100,
+      sorter: true,
+      sortOrder: getSortOrder('status'),
       render: (_: any, record: Task) => {
-        const config = getStatusConfig(record.status, record.is_overdue);
+        const config = getStatusConfig(record.status, record.is_overdue, record);
         return (
           <Tag className={`${config.color} border-0 rounded-full`}>
             {config.label}
@@ -305,7 +451,7 @@ const Tasks: React.FC = () => {
             </>
           ) : (
             <>
-              {['not_started', 'in_progress', 'submitted'].includes(record.status) && (
+              {['in_progress', 'submitted', 'need_revision'].includes(record.status) && (
                 <Button type="text" size="small" icon={<UploadOutlined />} onClick={() => { setSelectedTask(record); setDeliveryModalVisible(true); }}>
                   提交成果
                 </Button>
@@ -317,13 +463,18 @@ const Tasks: React.FC = () => {
               )}
               {record.status === 'submitted' && (
                 <Popconfirm
-                  title="确认任务已完成？完成后将无法继续提交"
+                  title="确认提前完成此任务？完成后可以继续上传成果"
                   onConfirm={() => handleStatusChange(record.id, 'completed')}
                 >
-                  <Button type="text" size="small" icon={<CheckCircleOutlined />} className="text-green-500">
-                    完成
+                  <Button type="default" size="small" icon={<CheckCircleOutlined />} className="text-green-600 border-green-500">
+                    提前完成
                   </Button>
                 </Popconfirm>
+              )}
+              {record.status === 'in_progress' && (
+                <Button type="default" size="small" icon={<CheckCircleOutlined />} disabled className="text-gray-300 border-gray-300">
+                  提前完成
+                </Button>
               )}
             </>
           )}
@@ -402,9 +553,13 @@ const Tasks: React.FC = () => {
           <Button icon={<FilterOutlined />} onClick={handleSearch}>筛选</Button>
           <div className="flex-1" />
           <Space>
-            <Badge count={pagination.total} showZero color="#006D4E">
+            {newTaskCount > 0 ? (
+              <Badge count={newTaskCount} color="#006D4E">
+                <span className="text-gray-500 text-sm">共 {pagination.total} 个任务</span>
+              </Badge>
+            ) : (
               <span className="text-gray-500 text-sm">共 {pagination.total} 个任务</span>
-            </Badge>
+            )}
           </Space>
         </div>
       </div>
@@ -477,16 +632,22 @@ const Tasks: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item name="week_id" label="所属周次" rules={[{ required: true, message: '请选择周次' }]}>
-                <Select placeholder="请选择周次">
-                  {weeks.map((week) => (
-                    <Select.Option key={week.id} value={week.id}>{week.name}</Select.Option>
+                <Select placeholder="请选择周次" onChange={handleWeekChange}>
+                  {getSelectableWeeks().map((week) => (
+                    <Select.Option key={week.id} value={week.id}>{formatWeekOption(week)}</Select.Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="deadline" label="截止时间" rules={[{ required: true, message: '请选择截止时间' }]}>
-            <Input type="date" />
+          <Form.Item name="deadline" label="截止时间" rules={[{ required: true, message: '请选择截止时间' }]}
+            tooltip="截止时间必须在所选周次的范围内">
+            <DatePicker
+              className="w-full"
+              placeholder="请选择截止时间"
+              disabledDate={getDeadlineDisabledDate}
+              format="YYYY-MM-DD"
+            />
           </Form.Item>
           <Form.Item name="delivery_requirement" label="交付物要求" rules={[{ required: true, message: '请输入交付物要求' }]}>
             <Input.TextArea rows={2} placeholder="请明确需要提交什么成果" />
