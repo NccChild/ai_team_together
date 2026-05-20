@@ -4,7 +4,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Form, Input, Button, Table, Tag, Modal, message, Select, Space, Divider, Tooltip, Typography } from 'antd';
-import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, TeamOutlined } from '@ant-design/icons';
+import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
 import { weeklyReportApi, memberApi, weekApi } from '../api';
 import type { WeeklyReport, Member, Week } from '../types';
 
@@ -555,6 +555,98 @@ const WeeklyReports: React.FC = () => {
                 </Button>
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 专班周报汇总弹窗 */}
+      <Modal
+        title={
+          <div className="flex items-center">
+            <TeamOutlined className="mr-2" style={{ color: colors.primary }} />
+            <span>专班周报汇总 {summaryData?.week_name ? `- ${summaryData.week_name}` : ''}</span>
+          </div>
+        }
+        open={summaryVisible}
+        onCancel={() => setSummaryVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setSummaryVisible(false)} className="rounded-full">
+            关闭
+          </Button>,
+        ]}
+        width={900}
+        className="rounded-xl"
+      >
+        {summaryData?.items?.length > 0 ? (
+          <div className="mt-4 space-y-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            {summaryData.items.map((item: any) => (
+              <div key={item.report_id} className="border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold text-sm mr-2">
+                      {getInitial(item.member_name)}
+                    </div>
+                    <span className="font-semibold text-gray-800">{item.member_name || '未知'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">本周工作</p>
+                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{item.work_content || '暂无'}</p>
+                  </div>
+
+                  {item.main_results && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">主要成果</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{item.main_results}</p>
+                    </div>
+                  )}
+
+                  {item.problems && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">存在问题</p>
+                      <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{item.problems}</p>
+                    </div>
+                  )}
+
+                  {item.next_week_plan && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">下周计划</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{item.next_week_plan}</p>
+                    </div>
+                  )}
+
+                  {item.analysis && (
+                    <>
+                      {item.analysis.contribution_summary && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">贡献摘要</p>
+                          <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">{item.analysis.contribution_summary}</p>
+                        </div>
+                      )}
+                      {item.analysis.risk_alerts?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">风险提示</p>
+                          <div className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
+                            <ul className="list-disc pl-4 space-y-1">
+                              {item.analysis.risk_alerts.map((alert: string, i: number) => (
+                                <li key={i}>{alert}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <TeamOutlined className="text-4xl text-gray-300 mb-4" />
+            <p className="text-gray-500">该周次暂无周报数据</p>
           </div>
         )}
       </Modal>
