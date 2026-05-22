@@ -63,13 +63,13 @@ def clean_and_init():
         db.add(admin)
         db.commit()
 
-        print(f"\n✅ 清理并初始化完成！")
+        print(f"\n[OK] 清理并初始化完成！")
         print(f"  用户名: {DEFAULT_ADMIN['username']}")
         print(f"  密码: {DEFAULT_ADMIN['password']}")
         print(f"  角色: {DEFAULT_ADMIN['role']}")
     except Exception as e:
         db.rollback()
-        print(f"❌ 创建管理员失败: {e}")
+        print(f"[ERROR] 创建管理员失败: {e}")
         sys.exit(1)
     finally:
         db.close()

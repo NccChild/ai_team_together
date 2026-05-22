@@ -141,6 +141,24 @@ export const evaluationApi = {
 
   getPending: () =>
     apiClient.get<{ items: PendingEvaluation[]; total: number }>('/evaluations/pending'),
+
+  syncFromAchievements: () =>
+    apiClient.post<{ synced_count: number }>('/evaluations/sync-from-achievements'),
+
+  aiPreview: (taskId: number) =>
+    apiClient.post<{
+      id: number;
+      comment: string;
+      score: number;
+      task_id: number;
+      task_name: string;
+      action: string;
+      diagnostics?: any;
+    }>(
+      '/evaluations/ai-preview',
+      null,
+      { params: { task_id: taskId }, timeout: 180000 }
+    ),
 };
 
 // ===========================================

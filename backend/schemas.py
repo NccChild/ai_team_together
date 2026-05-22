@@ -242,7 +242,9 @@ class EvaluationUpdate(BaseModel):
     """更新评价请求模型"""
     level: Optional[str] = None
     comment: Optional[str] = None
+    base_score: Optional[int] = None
     bonus_score: Optional[int] = None
+    final_score: Optional[int] = None
 
 class EvaluationResponse(EvaluationBase):
     """评价响应模型"""

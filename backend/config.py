@@ -34,13 +34,18 @@ DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
 
 # ===========================================
+# GitHub 配置
+# ===========================================
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+
+# ===========================================
 # 大模型配置
 # ===========================================
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "qwen")  # qwen, deepseek, minimax
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek")  # qwen, deepseek, minimax
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen-turbo")
-LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "60"))
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-v4-pro")
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
 
 # ===========================================
 # 分页配置

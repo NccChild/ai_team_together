@@ -9,6 +9,9 @@ from pathlib import Path
 # 将项目根目录加入 sys.path，确保直接运行 main.py 时也能正确导入
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from dotenv import load_dotenv
+load_dotenv(Path(__file__).resolve().parent / ".env")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html

@@ -25,8 +25,8 @@ def init_database():
     db = SessionLocal()
 
     try:
-        # 检查是否已有数据
-        if db.query(Member).count() > 0:
+        # 检查是否已有数据（排除 admin，只检查普通成员）
+        if db.query(Member).filter(Member.role != 'admin').count() > 0:
             print("数据库已有数据，跳过初始化")
             return
 

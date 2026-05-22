@@ -155,7 +155,9 @@ export interface EvaluationCreate {
   task_id: number;
   level: string;
   comment?: string;
+  base_score?: number;
   bonus_score?: number;
+  final_score?: number;
   evaluator_id: number;
   member_id: number;
 }
