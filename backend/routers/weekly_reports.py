@@ -94,6 +94,69 @@ def create_weekly_report(report_data: WeeklyReportCreate, db: Session = Depends(
 
     return success_response({"id": report_id}, message=message)
 
+
+@router.get("/weekly-reports/summary", response_model=ResponseModel, summary="获取专班周报汇总")
+def get_team_summary(
+    week_id: Optional[int] = Query(None, description="周次ID"),
+    db: Session = Depends(get_db)
+):
+    """获取专班周报汇总，用于生成专班周报草稿"""
+    week = None
+    if week_id:
+        week = db.query(Week).filter(Week.id == week_id).first()
+    else:
+        from backend.utils.datetime_utils import get_current_week
+        start, end = get_current_week()
+        week = db.query(Week).filter(
+            Week.start_date <= start,
+            Week.end_date >= end
+        ).first()
+        if week:
+            week_id = week.id
+
+    if not week_id:
+        return success_response({"week_name": None, "items": [], "total": 0})
+
+    reports = db.query(WeeklyReport).filter(
+        WeeklyReport.week_id == week_id
+    ).all()
+
+    items = []
+    for r in reports:
+        item = {
+            "report_id": r.id,
+            "member_id": r.member_id,
+            "member_name": r.member.name if hasattr(r, 'member') and r.member else None,
+            "work_content": r.work_content,
+            "main_results": r.main_results,
+            "problems": r.problems,
+            "next_week_plan": r.next_week_plan
+        }
+
+        if r.analysis:
+            item["analysis"] = {
+                "main_work": r.analysis.main_work,
+                "contribution_summary": r.analysis.contribution_summary,
+                "risk_alerts": r.analysis.risk_alerts
+            }
+
+        items.append(item)
+
+    # 调用大模型生成专班周报草稿
+    week_name = week.name if week else None
+    llm_service = LLMService()
+    summary = llm_service.generate_team_summary(items, week_name)
+
+    return success_response({
+        "week_id": week_id,
+        "week_name": week_name,
+        "items": items,
+        "total": len(items),
+        "summary_text": summary.get("summary_text", ""),
+        "summary_generated": summary.get("generated", False)
+    })
+
+
 @router.get("/weekly-reports/{report_id}", response_model=ResponseModel, summary="获取周报详情")
 def get_weekly_report(report_id: int, db: Session = Depends(get_db)):
     """获取周报详情，包含分析结果"""
@@ -212,54 +275,3 @@ def analyze_weekly_report(report_id: int, db: Session = Depends(get_db)):
         "contribution_summary": analysis.contribution_summary,
         "risk_alerts": analysis.risk_alerts
     }, message="分析完成")
-
-@router.get("/weekly-reports/summary", response_model=ResponseModel, summary="获取专班周报汇总")
-def get_team_summary(
-    week_id: Optional[int] = Query(None, description="周次ID"),
-    db: Session = Depends(get_db)
-):
-    """获取专班周报汇总，用于生成专班周报草稿"""
-    # 获取当前周
-    if not week_id:
-        from backend.utils.datetime_utils import get_current_week
-        start, end = get_current_week()
-        week = db.query(Week).filter(
-            Week.start_date <= start,
-            Week.end_date >= end
-        ).first()
-        week_id = week.id if week else None
-
-    if not week_id:
-        return success_response({"items": [], "total": 0})
-
-    reports = db.query(WeeklyReport).filter(
-        WeeklyReport.week_id == week_id
-    ).all()
-
-    items = []
-    for r in reports:
-        item = {
-            "report_id": r.id,
-            "member_id": r.member_id,
-            "member_name": r.member.name if hasattr(r, 'member') and r.member else None,
-            "work_content": r.work_content,
-            "main_results": r.main_results,
-            "problems": r.problems,
-            "next_week_plan": r.next_week_plan
-        }
-
-        if r.analysis:
-            item["analysis"] = {
-                "main_work": r.analysis.main_work,
-                "contribution_summary": r.analysis.contribution_summary,
-                "risk_alerts": r.analysis.risk_alerts
-            }
-
-        items.append(item)
-
-    return success_response({
-        "week_id": week_id,
-        "week_name": week.name if week else None,
-        "items": items,
-        "total": len(items)
-    })

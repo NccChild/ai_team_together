@@ -42,10 +42,15 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 # 大模型配置
 # ===========================================
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek")  # qwen, deepseek, minimax
+
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
 LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-v4-pro")
 LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
+
+
+# Prompt 模板目录
+PROMPT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs", "prompts")
 
 # ===========================================
 # 分页配置

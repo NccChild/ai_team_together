@@ -3,9 +3,9 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Form, Input, Button, Table, Tag, Modal, message, Select, Space, Divider } from 'antd';
-import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { weeklyReportApi, memberApi, weekApi } from '../api';
+import { Card, Row, Col, Form, Input, Button, Table, Tag, Modal, message, Select, Space, Divider, Tooltip, Typography } from 'antd';
+import { FileTextOutlined, RocketOutlined, CheckCircleOutlined, ExclamationCircleOutlined, LinkOutlined, TeamOutlined, CloseOutlined } from '@ant-design/icons';
+import { weeklyReportApi, memberApi, weekApi, exportApi } from '../api';
 import type { WeeklyReport, Member, Week } from '../types';
 
 const { TextArea } = Input;
@@ -27,6 +27,9 @@ const WeeklyReports: React.FC = () => {
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedReport, setSelectedReport] = useState<WeeklyReport | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [summaryVisible, setSummaryVisible] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryData, setSummaryData] = useState<{ week_id?: number; week_name: string; items: any[]; summary_text?: string; summary_generated?: boolean } | null>(null);
   const [form] = Form.useForm();
   const [selectedWeekId, setSelectedWeekId] = useState<number | undefined>(undefined);
 
@@ -109,6 +112,23 @@ const WeeklyReports: React.FC = () => {
       } finally {
         setAnalyzing(false);
       }
+    }
+  };
+
+  const handleTeamSummary = async () => {
+    if (!selectedWeekId) {
+      message.warning('请先选择周次');
+      return;
+    }
+    setSummaryLoading(true);
+    try {
+      const result = await weeklyReportApi.getSummary(selectedWeekId);
+      setSummaryData(result);
+      setSummaryVisible(true);
+    } catch (error) {
+      message.error('加载专班汇总失败');
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -269,22 +289,33 @@ const WeeklyReports: React.FC = () => {
 
       {/* 筛选器 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
-        <Form form={form} layout="inline">
-          <Form.Item name="week_id" className="mb-0">
-            <Select
-              placeholder="选择周次"
-              value={selectedWeekId}
-              onChange={handleWeekChange}
-              style={{ width: 200 }}
-            >
-              {weeks.map((week) => (
-                <Select.Option key={week.id} value={week.id}>
-                  {week.name}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
+        <div className="flex items-center justify-between">
+          <Form form={form} layout="inline">
+            <Form.Item name="week_id" className="mb-0">
+              <Select
+                placeholder="选择周次"
+                value={selectedWeekId}
+                onChange={handleWeekChange}
+                style={{ width: 200 }}
+              >
+                {weeks.map((week) => (
+                  <Select.Option key={week.id} value={week.id}>
+                    {week.name}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+          <Button
+            icon={<TeamOutlined />}
+            loading={summaryLoading}
+            onClick={handleTeamSummary}
+            className="rounded-full"
+            style={{ borderColor: colors.primary, color: colors.primary }}
+          >
+            生成专班周报
+          </Button>
+        </div>
       </div>
 
       {/* 周报列表 */}
@@ -369,6 +400,9 @@ const WeeklyReports: React.FC = () => {
           </Form.Item>
           <Form.Item name="next_week_plan" label="下周计划">
             <TextArea rows={2} placeholder="请列出下周的工作计划" className="rounded-lg" />
+          </Form.Item>
+          <Form.Item name="raw_text" label="原始文本" rules={[{ required: true, message: '请粘贴周报原始文本' }]}>
+            <TextArea rows={4} placeholder="请粘贴完整的周报原始文本（包含以上所有内容）" className="rounded-lg" />
           </Form.Item>
         </Form>
       </Modal>
@@ -521,6 +555,124 @@ const WeeklyReports: React.FC = () => {
                 </Button>
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* 专班周报汇总弹窗 */}
+      <Modal
+        title={
+          <div className="flex items-center">
+            <TeamOutlined className="mr-2" style={{ color: colors.primary }} />
+            <span>专班周报汇总 {summaryData?.week_name ? `- ${summaryData.week_name}` : ''}</span>
+          </div>
+        }
+        open={summaryVisible}
+        onCancel={() => setSummaryVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setSummaryVisible(false)} className="rounded-full">
+            关闭
+          </Button>,
+          <Button
+            key="export"
+            icon={<FileTextOutlined />}
+            type="primary"
+            onClick={() => summaryData?.week_id && exportApi.exportWeeklyReportWord(summaryData.week_id)}
+            className="rounded-full"
+            style={{ backgroundColor: colors.primary }}
+          >
+            导出Word
+          </Button>,
+        ]}
+        width={900}
+        className="rounded-xl"
+      >
+        {summaryData?.items?.length > 0 ? (
+          <div className="mt-4 space-y-4" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            {/* AI 生成的专班周报草稿 */}
+            {summaryData.summary_text && (
+              <div className="border border-emerald-200 bg-emerald-50 rounded-xl p-4 mb-4">
+                <div className="flex items-center mb-3">
+                  <RocketOutlined className="mr-2" style={{ color: colors.primary }} />
+                  <span className="font-semibold text-gray-800">专班周报草稿（AI 生成）</span>
+                  {summaryData.summary_generated && (
+                    <Tag className="ml-2" style={{ backgroundColor: '#f6ffed', borderColor: '#b7eb8f', color: '#52c41a', borderRadius: '10px', fontSize: '11px' }}>DeepSeek</Tag>
+                  )}
+                </div>
+                <div className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                  {summaryData.summary_text}
+                </div>
+              </div>
+            )}
+
+            {summaryData.items.map((item: any) => (
+              <div key={item.report_id} className="border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold text-sm mr-2">
+                      {getInitial(item.member_name)}
+                    </div>
+                    <span className="font-semibold text-gray-800">{item.member_name || '未知'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">本周工作</p>
+                    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{item.work_content || '暂无'}</p>
+                  </div>
+
+                  {item.main_results && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">主要成果</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{item.main_results}</p>
+                    </div>
+                  )}
+
+                  {item.problems && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">存在问题</p>
+                      <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3">{item.problems}</p>
+                    </div>
+                  )}
+
+                  {item.next_week_plan && (
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">下周计划</p>
+                      <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{item.next_week_plan}</p>
+                    </div>
+                  )}
+
+                  {item.analysis && (
+                    <>
+                      {item.analysis.contribution_summary && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">贡献摘要</p>
+                          <p className="text-sm text-emerald-700 bg-emerald-50 rounded-lg p-3">{item.analysis.contribution_summary}</p>
+                        </div>
+                      )}
+                      {item.analysis.risk_alerts?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-400 mb-1">风险提示</p>
+                          <div className="text-sm text-amber-700 bg-amber-50 rounded-lg p-3">
+                            <ul className="list-disc pl-4 space-y-1">
+                              {item.analysis.risk_alerts.map((alert: string, i: number) => (
+                                <li key={i}>{alert}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <TeamOutlined className="text-4xl text-gray-300 mb-4" />
+            <p className="text-gray-500">该周次暂无周报数据</p>
           </div>
         )}
       </Modal>
