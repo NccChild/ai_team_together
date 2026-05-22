@@ -34,13 +34,20 @@ DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "20"))
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
 
 # ===========================================
+# GitHub 配置
+# ===========================================
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
+
+# ===========================================
 # 大模型配置
 # ===========================================
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "deepseek")  # qwen, deepseek, minimax
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")  # llm调试通顺，回头补充api-key
+
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com")
-LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-chat")
-LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "60"))
+LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "deepseek-v4-pro")
+LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "120"))
+
 
 # Prompt 模板目录
 PROMPT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "docs", "prompts")

@@ -288,6 +288,67 @@ class LLMService:
             logger.error(f"任务评价失败: {e}")
             return self._get_mock_evaluation(task_info, deliveries)
 
+    def ai_evaluate_with_code(
+        self,
+        task_name: str,
+        member_name: str,
+        task_description: str,
+        code_content: str,
+    ) -> Dict[str, Any]:
+        """
+        根据成果说明和支撑代码生成评价，返回 comment 和 score。
+
+        Returns:
+            {"comment": "评价文本（约200字）", "score": 85}
+        """
+        prompt = f"""你是一个专业的代码评审助手。请根据以下信息对任务完成情况进行评价。
+
+任务名称：{task_name}
+负责人：{member_name}
+任务描述：{task_description or '无'}
+
+以下是该任务关联的成果及其支撑代码：
+{code_content if code_content else '（无代码成果）'}
+
+请综合评估代码质量、完成度和工作量，给出评价意见和评分。
+
+以JSON格式输出：
+- comment: 评价意见（约200字，具体、有针对性，提及亮点和可改进之处）
+- score: 评分（0-100的整数，60以下为不合格，60-69需修改，70-89合格，90-100优秀）
+
+只输出JSON，不要有其他文字。"""
+
+        if not self.api_key or not self.base_url:
+            return {
+                "comment": f"（API未配置，无法生成评价）{member_name}完成了任务「{task_name}」，请手动评价。",
+                "score": 0,
+            }
+
+        try:
+            import asyncio
+            messages = [{"role": "user", "content": prompt}]
+            result_text = asyncio.run(self._call_api(messages, temperature=0.3))
+
+            result_text = result_text.strip()
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.startswith("```"):
+                result_text = result_text[3:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
+
+            parsed = json.loads(result_text.strip())
+            return {
+                "comment": parsed.get("comment", ""),
+                "score": int(parsed.get("score", 0)),
+            }
+        except Exception as e:
+            logger.error(f"AI代码评价失败: {e}")
+            return {
+                "comment": f"（AI评价生成失败：{str(e)}）请手动编辑评价意见。",
+                "score": 0,
+            }
+
     def _get_mock_evaluation(self, task_info: Dict[str, Any], deliveries: List[Dict[str, Any]]) -> Dict[str, Any]:
         has_delivery = len(deliveries) > 0
         return {
